@@ -1,6 +1,7 @@
-// Kleine beloningen: confetti in vuurkleuren, een tikje trilling en meldingen.
+// Kleine beloningen: confetti in de Pellens-kleuren, een tikje trilling en meldingen.
 
-const KLEUREN = ['#FF5A1F', '#FF9F1C', '#FFD166', '#B6F36A', '#7EE0FF', '#F4F1EA'];
+// Bladgoud en crème, de kleuren van Pellens.
+const KLEUREN = ['#E8E3BE', '#D9C3A1', '#C4A97F', '#A9BC8A', '#F3EFE0', '#D6926A'];
 const rustig = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 export function tril(ms = 12) {

@@ -1,9 +1,10 @@
 // Bewaart de app-schil, zodat hij direct opent. Gegevens komen altijd vers van de server.
-const CACHE = 'pellens-hub-__VERSIE__';
+const CACHE = 'pellens-marketing-__VERSIE__';
 const SCHIL = [
   './', 'index.html', 'app.css', 'app.js', 'config.js', 'manifest.json',
-  'lib/logica.js', 'lib/plan.js', 'lib/opslag.js', 'lib/upload.js', 'lib/spraak.js', 'lib/effecten.js', 'lib/onderwerpen.js',
-  'icons/icon-192.png',
+  'thema.js', 'thema-start.js',
+  'lib/logica.js', 'lib/plan.js', 'lib/opslag.js', 'lib/upload.js', 'lib/spraak.js', 'lib/effecten.js', 'lib/onderwerpen.js', 'lib/iconen.js',
+  'icons/icon-192.png', 'icons/monogram.svg',
 ];
 
 self.addEventListener('install', event => {

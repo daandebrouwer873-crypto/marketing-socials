@@ -168,6 +168,17 @@ try {
     await page.waitForURL(/#week/);
   });
 
+  await stap('weergave wisselen blijft bewaard', async () => {
+    await page.goto(`${basis}?demo#meer`);
+    await page.locator('[data-actie="thema"][data-thema="licht"]').click();
+    assert.equal(await page.evaluate(() => document.documentElement.dataset.thema), 'licht');
+    await page.reload();
+    await page.locator('.tegels').waitFor();
+    assert.equal(await page.evaluate(() => document.documentElement.dataset.thema), 'licht');
+    await foto('meer-licht');
+    await page.locator('[data-actie="thema"][data-thema="donker"]').click();
+  });
+
   await stap('Daan spreekt in en keurt goed', async () => {
     await page.goto(`${basis}?demo#meer`);
     await page.locator('[data-actie="demo-als"][data-email="daan@demo"]').click();

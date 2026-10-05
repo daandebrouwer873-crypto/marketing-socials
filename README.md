@@ -1,4 +1,4 @@
-# Pellens Hub
+# Pellens marketing
 
 De marketing-app van Restaurant Pellens en Brouwerij de Brouwer. Daan, Mila en Beau
 zien hier wat er vandaag en deze week te doen is, plannen posts, spreken teksten in
@@ -45,7 +45,7 @@ Rollen: `eigenaar` (Daan), `social` (Mila), `manager` (Beau).
 
 De app uploadt via een serviceaccount: een apart Google-account alleen voor de app.
 
-1. Open [console.cloud.google.com](https://console.cloud.google.com) en maak een project, bijvoorbeeld "Pellens Hub".
+1. Open [console.cloud.google.com](https://console.cloud.google.com) en maak een project, bijvoorbeeld "Pellens marketing".
 2. Zoek **Google Drive API** en klik op **Inschakelen**.
 3. Ga naar **IAM en beheer → Serviceaccounts → Serviceaccount maken**, noem hem `pellens-hub-upload`.
 4. Open het serviceaccount → **Sleutels → Sleutel toevoegen → JSON**. Er wordt een bestand gedownload.

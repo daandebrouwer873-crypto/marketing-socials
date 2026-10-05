@@ -1,4 +1,4 @@
-// Pellens Hub: de marketing-app van Daan, Mila en Beau.
+// Pellens marketing: de app van Daan, Mila en Beau.
 import {
   vandaag, plusDagen, maandagVan, weekdag, vorigeMaand, weekNummer, weekBereik, korteDatum, dagNaam, dagKort, maandNaam,
   begroeting, takenVoorWeek, vrijePlekken, routinesVoor, streak, postsTekstNodig, filterPosts,
@@ -10,6 +10,8 @@ import { maakOpslag, DEMO_TEAM } from './lib/opslag.js';
 import { uploadNaarBeeldbank, mimeVan } from './lib/upload.js';
 import { dicterenKan, startDicteren, memoKan, startMemo } from './lib/spraak.js';
 import { confetti, confettiBij, tril, melding } from './lib/effecten.js';
+import { icoon, monogram } from './lib/iconen.js';
+import { kiesThema, huidigThema, THEMAS as WEERGAVEN } from './thema.js';
 
 const config = window.APP_CONFIG || { demo: true };
 const opslag = maakOpslag(config);
@@ -62,7 +64,7 @@ function ring(waarde, totaal, { maat = 74, id = '' } = {}) {
     <svg width="${maat}" height="${maat}" viewBox="0 0 ${maat} ${maat}" aria-hidden="true">
       <circle class="ring-bg" cx="${maat / 2}" cy="${maat / 2}" r="${r}" fill="none" stroke-width="8"/>
       <circle class="ring-voor" ${id ? `id="${id}"` : ''} data-omtrek="${omtrek}" cx="${maat / 2}" cy="${maat / 2}" r="${r}" fill="none"
-        stroke="url(#nav-vuur)" stroke-width="8" stroke-linecap="round"
+        stroke-width="8" stroke-linecap="round"
         stroke-dasharray="${omtrek}" stroke-dashoffset="${omtrek * (1 - deel)}"/>
     </svg>
     <span class="ring-tekst" ${id ? `id="${id}-tekst"` : ''}>${totaal ? `${waarde}/${totaal}` : '–'}</span>
@@ -78,7 +80,7 @@ function vonk(waarden) {
   const punten = waarden.map((w, i) => `${(i / (waarden.length - 1)) * b},${h - 3 - ((w - min) / (max - min || 1)) * (h - 6)}`);
   const stijgt = waarden.at(-1) >= waarden[0];
   return `<svg class="vonk" width="${b}" height="${h}" viewBox="0 0 ${b} ${h}" aria-hidden="true">
-    <polyline points="${punten.join(' ')}" fill="none" stroke="${stijgt ? '#b6f36a' : '#ff8a1f'}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <polyline points="${punten.join(' ')}" fill="none" style="stroke:var(${stijgt ? '--salie' : '--sintel'})" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
   </svg>`;
 }
 
@@ -149,8 +151,8 @@ function foutIn(form, tekst) {
 
 function topbalk() {
   return `<header class="topbalk">
-    <div class="woordmerk"><span class="vlam" aria-hidden="true">🔥</span>Pellens <span class="hub">hub</span>${opslag.demo ? '<span class="demo-label">demo</span>' : ''}</div>
-    <a href="#meer" aria-label="Account en meer">${avatar(S.lid)}</a>
+    <a class="woordmerk" href="#vandaag" aria-label="Pellens marketing, naar vandaag">${monogram(34)}<span><span class="naam">Pellens</span><span class="onder">marketing</span></span></a>
+    <div style="display:flex;align-items:center;gap:10px">${opslag.demo ? '<span class="demo-label">demo</span>' : ''}<a href="#meer" aria-label="Account en meer">${avatar(S.lid)}</a></div>
   </header>`;
 }
 
@@ -169,7 +171,7 @@ function viewVandaag() {
     return `<div class="rij${aan ? ' aan' : ''}">
       <button class="vink-knop" data-actie="routine" data-key="${esc(r.key)}" aria-pressed="${aan}">
         <span class="vink" aria-hidden="true"></span>
-        <span class="rt"><span class="rl">${r.emoji} ${esc(r.label)}</span>${r.hint ? `<span class="rh">${esc(r.hint)}</span>` : ''}</span>
+        <span class="rt"><span class="rl">${esc(r.label)}</span>${r.hint ? `<span class="rh">${esc(r.hint)}</span>` : ''}</span>
       </button>
       ${r.link ? `<a class="ga" href="${r.link}" aria-label="Ga naar ${esc(r.label)}">→</a>` : ''}
     </div>`;
@@ -177,22 +179,22 @@ function viewVandaag() {
 
   return `
     <p class="dagregel">${dagNaam(d)} ${korteDatum(d).split(' ').slice(1).join(' ')} · week ${weekNummer(d)}</p>
-    <h1 class="hey">${begroeting()},<br><span class="grad">${esc(S.lid.naam)}</span> 👋</h1>
+    <h1 class="hey">${begroeting()},<br><em>${esc(S.lid.naam)}</em></h1>
 
     <div class="bento">
       <div class="kaart tegel streak">
-        <span class="vlam-groot" aria-hidden="true">🔥</span>
-        <div><div class="groot" id="streak-getal">${reeksDagen}</div><div class="label">${reeksDagen === 1 ? 'dag' : 'dagen'} op rij alles af</div></div>
+        <span class="vlam-zacht">${icoon('vlam', 26)}</span>
+        <div><div class="groot" id="streak-getal">${reeksDagen}</div><div class="tekst-onder">${reeksDagen === 1 ? 'dag' : 'dagen'} op rij alles af</div></div>
       </div>
       <div class="kaart tegel">
         ${ring(aantalGedaan, routines.length, { id: 'ring-vandaag' })}
-        <div class="label">${routines.length ? 'vaste taken vandaag' : 'vrije dag'}</div>
+        <div class="tekst-onder">${routines.length ? 'vaste taken vandaag' : 'vrije dag'}</div>
       </div>
     </div>
 
     ${weekdag(d) === 1 ? `
       <a class="kaart gloed klik" href="#maandag" style="display:block;text-decoration:none">
-        <div class="kop"><h2>🗓️ Maandagkwartier</h2><span class="pill p-vuur">15 min</span></div>
+        <div class="kop"><h2>Maandagkwartier</h2><span class="pill p-bubbel">15 min</span></div>
         <p class="sub">Cijfers invullen, vorige week afvinken, drie taken kiezen. Daarna terug naar de keuken.</p>
       </a>` : ''}
 
@@ -200,7 +202,7 @@ function viewVandaag() {
 
     <section class="kaart">
       <div class="kop"><h2>Vandaag</h2><span class="sub">${routines.length ? `${aantalGedaan} van ${routines.length}` : ''}</span></div>
-      ${routines.length ? rijen : '<p class="leeg">Vandaag geen vaste taken. Geniet ervan 🌿</p>'}
+      ${routines.length ? rijen : '<p class="leeg">Vandaag geen vaste taken. Geniet ervan.</p>'}
     </section>
 
     ${mijnTaken.length ? `
@@ -210,7 +212,8 @@ function viewVandaag() {
       </section>` : ''}
 
     <a class="kaart klik" href="#plan" style="display:block;text-decoration:none">
-      <div class="kop"><h2>${esc(maand.naam)}: ${esc(maand.thema)}</h2><span class="sub">→</span></div>
+      <p class="label" style="margin-bottom:6px">Deze maand</p>
+      <div class="kop"><h2>${esc(maand.naam)}, <em>${esc(maand.thema.toLowerCase())}</em></h2><span class="sub">${PIJL_RECHTS}</span></div>
       <div class="chips">${maand.momenten.map(m => `<span class="chip">${esc(m)}</span>`).join('')}</div>
     </a>`;
 }
@@ -225,11 +228,12 @@ function rolKaart() {
     const wachten = postsTekstNodig(S.posts.filter(p => p.datum >= vanaf));
     return wachten.length
       ? `<a class="kaart gloed klik" href="#posts/tekst" style="display:block;text-decoration:none">
-          <div class="kop"><h2>🎙️ ${wachten.length} ${wachten.length === 1 ? 'post wacht' : 'posts wachten'} op jouw tekst</h2></div>
+          <p class="label" style="margin-bottom:6px">${icoon('mic', 14)} Jouw beurt</p>
+          <div class="kop"><h2>${wachten.length} ${wachten.length === 1 ? 'post wacht' : 'posts wachten'} op jouw tekst</h2></div>
           <p class="sub">Tik, praat, keur goed. Mila doet de rest.</p>
-          <div class="knoppen een"><span class="knop">Inspreken</span></div>
+          <div class="knoppen een"><span class="knop">${icoon('mic')} Inspreken</span></div>
         </a>`
-      : `<div class="kaart"><h2>✅ Alle teksten zijn binnen</h2><p class="sub">Niets dat op jou wacht. Lekker.</p></div>`;
+      : `<div class="kaart"><p class="label" style="margin-bottom:6px">${icoon('check', 14)} Teksten</p><h2>Alle teksten zijn binnen</h2><p class="sub">Niets dat op jou wacht. Lekker.</p></div>`;
   }
 
   if (isSocial()) {
@@ -238,17 +242,18 @@ function rolKaart() {
     return `<div class="bento">
       <a class="kaart tegel klik" href="#posts" style="text-decoration:none">
         <span class="label">Deze week</span>
-        <div><div class="groot">${dezeWeek.length}</div><div class="label">posts gepland, ${klaar} met tekst</div></div>
+        <div><div class="groot">${dezeWeek.length}</div><div class="tekst-onder">posts gepland, ${klaar} met tekst</div></div>
       </a>
       <a class="kaart tegel klik" href="#upload" style="text-decoration:none">
         <span class="label">Beeldbank</span>
-        <div><div class="groot">${nieuw}</div><div class="label">in "Nieuw" te sorteren</div></div>
+        <div><div class="groot">${nieuw}</div><div class="tekst-onder">in "Nieuw" te sorteren</div></div>
       </a>
     </div>`;
   }
 
   return `<div class="kaart">
-    <h2>⭐ Reviews komen van enthousiaste tafels</h2>
+    <p class="label" style="margin-bottom:6px">${icoon('ster', 14)} Reviews</p>
+    <h2>Reviews komen van enthousiaste tafels</h2>
     <p class="sub">Vraag het bij de koffie, nooit bij de rekening. Een tafel vrij op vrijdag of zaterdag? Geef het direct door aan Mila.</p>
   </div>`;
 }
@@ -289,7 +294,7 @@ function viewWeek() {
       ${ring(af, Math.max(lijst.length, MAX_TAKEN))}
       <div>
         <b>${af} van ${lijst.length || MAX_TAKEN} af</b>
-        <p class="sub">${verleden ? 'Deze week is voorbij.' : plekken ? `Nog ${plekken} ${plekken === 1 ? 'plek' : 'plekken'} vrij.` : 'Vol. Eerst iets afmaken 💪'}</p>
+        <p class="sub">${verleden ? 'Deze week is voorbij.' : plekken ? `Nog ${plekken} ${plekken === 1 ? 'plek' : 'plekken'} vrij.` : 'Vol. Eerst iets afmaken.'}</p>
       </div>
     </div>
 
@@ -331,7 +336,7 @@ function viewPosts() {
     ['alles', 'Alles'], ['tekst_nodig', `Tekst nodig${tekstNodig ? ` <span class="tel">${tekstNodig}</span>` : ''}`],
     ['tekst_klaar', 'Klaar'], ['ingepland', 'Ingepland'], ['geplaatst', 'Geplaatst'],
   ];
-  const merken = [['alles', 'Beide'], ['pellens', '🔥 Pellens'], ['brouwerij', '🫧 Brouwerij']];
+  const merken = [['alles', 'Beide merken'], ['pellens', 'Pellens'], ['brouwerij', 'Brouwerij']];
 
   const groepen = dagen.map(d => {
     const posts = gefilterd.filter(p => p.datum === d);
@@ -373,17 +378,17 @@ function postKaart(p) {
   const wachtOpDaan = isEigenaar() && postsTekstNodig([p]).length;
   return `<article class="kaart post" data-actie="post-open" data-id="${esc(p.id)}" tabindex="0" role="button">
     <div class="post-top">
-      <span class="kanaal">${kanaal.emoji} ${esc(kanaal.label)}</span>
+      <span class="kanaal">${esc(kanaal.label)}</span>
       <span class="merk m-${esc(p.merk)}">${esc((MERKEN[p.merk] || MERKEN.pellens).kort)}</span>
       <span class="pill p-${status.kleur}">${status.label}</span>
     </div>
     <p class="idee">${esc(p.idee)}</p>
     ${p.tekst ? `<p class="tekst-preview">“${esc(p.tekst)}”</p>` : ''}
     <div class="post-voet">
-      ${thema ? `<span>${thema.emoji} ${esc(thema.label)}</span>` : ''}
-      ${(p.beeld || []).length ? `<span>🖼️ ${p.beeld.length}</span>` : ''}
-      ${p.spraakmemo_pad ? '<span>🎧 memo</span>' : ''}
-      ${wachtOpDaan ? '<span class="cta">🎙️ Inspreken</span>' : ''}
+      ${thema ? `<span>${esc(thema.label)}</span>` : ''}
+      ${(p.beeld || []).length ? `<span>${icoon('beeld', 15)} ${p.beeld.length}</span>` : ''}
+      ${p.spraakmemo_pad ? `<span>${icoon('geluid', 15)} memo</span>` : ''}
+      ${wachtOpDaan ? `<span class="cta">${icoon('mic', 14)} Inspreken</span>` : ''}
     </div>
   </article>`;
 }
@@ -394,7 +399,7 @@ function kortNaam(naam) {
 }
 
 function keuzeRij(naam, opties, gekozen) {
-  return `<div class="keuze">${Object.entries(opties).map(([k, o]) => `<label><input type="radio" name="${naam}" value="${k}" ${k === gekozen ? 'checked' : ''}><span class="chip">${o.emoji ? `${o.emoji} ` : ''}${esc(o.label)}</span></label>`).join('')}</div>`;
+  return `<div class="keuze">${Object.entries(opties).map(([k, o]) => `<label><input type="radio" name="${naam}" value="${k}" ${k === gekozen ? 'checked' : ''}><span class="chip">${esc(o.label)}</span></label>`).join('')}</div>`;
 }
 
 function postPaneel(post) {
@@ -407,42 +412,42 @@ function postPaneel(post) {
 
   const detailVelden = details ? `
     <label class="veld"><span>Wanneer</span><input type="date" name="datum" required value="${esc(p.datum)}"></label>
-    <div class="veld"><span>Merk</span>${keuzeRij('merk', { pellens: { label: 'Pellens', emoji: '🔥' }, brouwerij: { label: 'Brouwerij de Brouwer', emoji: '🫧' } }, p.merk)}</div>
+    <div class="veld"><span>Merk</span>${keuzeRij('merk', { pellens: { label: 'Pellens' }, brouwerij: { label: 'Brouwerij de Brouwer' } }, p.merk)}</div>
     <div class="veld"><span>Kanaal</span>${keuzeRij('kanaal', KANALEN, p.kanaal)}</div>
     <div class="veld"><span>Thema</span>${keuzeRij('thema', THEMAS, p.thema)}</div>
     <label class="veld"><span>Waar gaat de post over?</span>
       <textarea name="idee" maxlength="600" required placeholder="Wat zie je, wat gebeurt er? Kort is goed.">${esc(p.idee)}</textarea></label>
     ${recent.length ? `<div class="veld"><span>Beeld uit de beeldbank</span>
-      <div class="keuze">${recent.map(u => `<label><input type="checkbox" name="beeld" value="${esc(u.naam)}" data-link="${esc(u.link || '')}" ${gekozenBeeld.has(u.naam) ? 'checked' : ''}><span class="chip">${(onderwerp(u.onderwerp) || { emoji: '🖼️' }).emoji} ${esc(kortNaam(u.naam))}</span></label>`).join('')}</div></div>` : ''}
+      <div class="keuze">${recent.map(u => `<label><input type="checkbox" name="beeld" value="${esc(u.naam)}" data-link="${esc(u.link || '')}" ${gekozenBeeld.has(u.naam) ? 'checked' : ''}><span class="chip">${esc(kortNaam(u.naam))}</span></label>`).join('')}</div></div>` : ''}
   ` : `
     <p class="sub">${korteDatum(p.datum)} · ${esc((MERKEN[p.merk] || MERKEN.pellens).label)}</p>
     <p class="idee" style="margin:10px 0 16px">${esc(p.idee)}</p>`;
 
   const tekstDeel = nieuw ? `<p class="mini" style="margin-bottom:12px">Na het opslaan kan Daan de tekst inspreken.</p>` : `
     <div class="kop" style="display:flex;justify-content:space-between;align-items:center;margin:6px 0 8px">
-      <h3>Tekst</h3><span class="geen-ai">✋ Eigen woorden, geen AI</span>
+      <h3 class="serif" style="font-size:20px;font-weight:450">Tekst</h3><span class="geen-ai">Eigen woorden, geen AI</span>
     </div>
     <textarea name="tekst" maxlength="2200" id="post-tekst" placeholder="${isEigenaar() ? 'Spreek je tekst in of typ hem hier.' : 'Hier komt de tekst van Daan.'}">${esc(p.tekst || '')}</textarea>
     <div class="teller"><span id="teller">${(p.tekst || '').length}</span>/2200</div>
     <div class="inspreek">
       ${dicterenKan()
-        ? '<button type="button" class="mic" data-actie="dicteer" aria-label="Dicteren starten of stoppen">🎙️</button><div class="mic-uitleg"><b>Tik en praat</b>Je woorden verschijnen direct als tekst.</div>'
+        ? `<button type="button" class="mic" data-actie="dicteer" aria-label="Dicteren starten of stoppen">${icoon('mic', 24)}</button><div class="mic-uitleg"><b>Tik en praat</b>Je woorden verschijnen direct als tekst.</div>`
         : '<div class="mic-uitleg"><b>Inspreken?</b>Tik op het microfoontje van je toetsenbord en praat.</div>'}
     </div>
     ${memoKan() ? `<div class="inspreek">
-      <button type="button" class="mic op-memo" data-actie="memo" aria-label="Spraakmemo opnemen of stoppen">🔴</button>
+      <button type="button" class="mic op-memo" data-actie="memo" aria-label="Spraakmemo opnemen of stoppen">${icoon('opname', 24)}</button>
       <div class="mic-uitleg"><b>Spraakmemo</b>Vertel je verhaal, Mila typt het letterlijk uit.</div>
       <div class="golf" id="golf" hidden>${'<i></i>'.repeat(16)}</div>
     </div>` : ''}
-    <div id="memo-speler">${p.spraakmemo_pad ? `<button type="button" class="knop stil klein" data-actie="memo-luister" data-pad="${esc(p.spraakmemo_pad)}">▶️ Spraakmemo afspelen</button>` : ''}</div>
-    <p class="mini" style="margin-top:10px">${p.tekst_goedgekeurd ? '✅ Goedgekeurd door Daan' : p.tekst ? '⏳ Wacht op goedkeuring van Daan' : ''}</p>`;
+    <div id="memo-speler">${p.spraakmemo_pad ? `<button type="button" class="knop stil klein" data-actie="memo-luister" data-pad="${esc(p.spraakmemo_pad)}">${icoon('geluid')} Spraakmemo afspelen</button>` : ''}</div>
+    <p class="mini" style="margin-top:10px">${p.tekst_goedgekeurd ? 'Goedgekeurd door Daan.' : p.tekst ? 'Wacht op goedkeuring van Daan.' : ''}</p>`;
 
   const knoppen = [];
   if (details || !nieuw) knoppen.push('<button class="knop" type="submit" value="opslaan">Opslaan</button>');
-  if (!nieuw && isEigenaar()) knoppen.push('<button class="knop groen" type="submit" value="goedkeuren">✅ Goedkeuren</button>');
-  if (!nieuw && p.tekst_goedgekeurd && p.tekst) knoppen.push('<button class="knop stil" type="button" data-actie="kopieer">📋 Kopieer tekst</button>');
-  if (!nieuw && p.status === 'tekst_klaar' && details) knoppen.push('<button class="knop stil" type="submit" value="ingepland">🗓️ Ingepland</button>');
-  if (!nieuw && p.status === 'ingepland' && details) knoppen.push('<button class="knop stil" type="submit" value="geplaatst">🎉 Geplaatst</button>');
+  if (!nieuw && isEigenaar()) knoppen.push(`<button class="knop groen" type="submit" value="goedkeuren">${icoon('check')} Goedkeuren</button>`);
+  if (!nieuw && p.tekst_goedgekeurd && p.tekst) knoppen.push(`<button class="knop stil" type="button" data-actie="kopieer">${icoon('kopie')} Kopieer tekst</button>`);
+  if (!nieuw && p.status === 'tekst_klaar' && details) knoppen.push(`<button class="knop stil" type="submit" value="ingepland">${icoon('kalender')} Ingepland</button>`);
+  if (!nieuw && p.status === 'ingepland' && details) knoppen.push(`<button class="knop stil" type="submit" value="geplaatst">${icoon('check')} Geplaatst</button>`);
 
   return `
     <h2>${nieuw ? 'Nieuwe post' : `${kanaal.emoji} ${esc(kanaal.label)}`}</h2>
@@ -462,7 +467,7 @@ function viewUpload() {
     const kanTonen = /^image\/(jpeg|png|webp|gif)/.test(mime);
     const inhoud = kanTonen
       ? `<img src="${b.url}" alt="">`
-      : mime.startsWith('video/') ? `<video src="${b.url}" muted playsinline preload="metadata"></video>` : '📸';
+      : mime.startsWith('video/') ? `<video src="${b.url}" muted playsinline preload="metadata"></video>` : icoon('camera', 30);
     return `<div class="voorbeeld${b.status === 'klaar' ? ' klaar' : ''}${b.status === 'fout' ? ' fout' : ''}" title="${esc(b.file.name)}">
       ${inhoud}
       ${u.bezig || b.status === 'klaar' ? '' : `<button class="weg" data-actie="bestand-weg" data-id="${b.id}" aria-label="Verwijder ${esc(b.file.name)}">✕</button>`}
@@ -477,7 +482,7 @@ function viewUpload() {
 
     <label class="dropzone" id="dropzone">
       <input type="file" accept="image/*,video/*" multiple data-input="bestanden" ${u.bezig ? 'disabled' : ''} aria-label="Kies foto's of video's">
-      <span class="dz-icoon" aria-hidden="true">📸</span>
+      <span class="dz-icoon">${icoon('uploaden', 40)}</span>
       <b>Drop je beeld</b>
       <span class="sub">Tik om foto's of video's te kiezen</span>
     </label>
@@ -487,7 +492,7 @@ function viewUpload() {
       ${fouten.length ? `<p class="fout-tekst">${fouten.map(f => esc(f.fout)).join(' · ')}</p>` : ''}
       <h2 style="margin:6px 0 2px">Waar hoort het bij?</h2>
       <div class="stickers">
-        ${ONDERWERPEN.map(o => `<button class="sticker${u.onderwerp === o.key ? ' aan' : ''}" data-actie="kies-onderwerp" data-key="${o.key}" ${u.bezig ? 'disabled' : ''}><span class="e" aria-hidden="true">${o.emoji}</span>${esc(o.label)}</button>`).join('')}
+        ${ONDERWERPEN.map(o => `<button class="sticker${u.onderwerp === o.key ? ' aan' : ''}" data-actie="kies-onderwerp" data-key="${o.key}" ${u.bezig ? 'disabled' : ''}>${esc(o.label)}</button>`).join('')}
       </div>
       <button class="knop" data-actie="upload-start" ${!u.onderwerp || u.bezig ? 'disabled' : ''}>
         ${u.bezig ? 'Bezig met uploaden…' : `Uploaden naar de beeldbank (${u.bestanden.filter(b => b.status !== 'klaar').length})`}
@@ -496,11 +501,11 @@ function viewUpload() {
     <section class="kaart" style="margin-top:18px">
       <div class="kop"><h2>Laatst geüpload</h2></div>
       ${S.uploads.length ? S.uploads.slice(0, 15).map(r => {
-        const o = onderwerp(r.onderwerp) || { emoji: '🖼️', label: r.onderwerp };
-        return `<div class="bestand"><span class="e" aria-hidden="true">${o.emoji}</span>
+        const o = onderwerp(r.onderwerp) || { label: r.onderwerp };
+        return `<div class="bestand"><span class="e">${icoon(/^video/.test(r.mime || '') ? 'geluid' : 'beeld')}</span>
           <div><div class="naam">${esc(r.naam)}</div><div class="mini">${esc(teamlid(r.email).naam)} · ${esc(o.label)} · ${geledenTekst(r.created_at)}</div></div>
           ${r.link ? `<a href="${esc(r.link)}" target="_blank" rel="noopener">Open</a>` : ''}</div>`;
-      }).join('') : '<p class="leeg">Nog niets geüpload. Jij mag de eerste zijn ✨</p>'}
+      }).join('') : '<p class="leeg">Nog niets geüpload. Jij mag de eerste zijn.</p>'}
     </section>`;
 }
 
@@ -513,11 +518,15 @@ function viewMeer() {
       <div><h2>${esc(S.lid.naam)}</h2><p class="sub">${esc(rol.label)} · ${esc(rol.taak)}</p></div>
     </div>
     <div class="tegels">
-      <a class="kaart klik" href="#doelen"><span class="e" aria-hidden="true">🎯</span><div><b>Doelen</b><p class="mini">Tot eind maart 2027</p></div></a>
-      <a class="kaart klik" href="#cijfers"><span class="e" aria-hidden="true">📊</span><div><b>Cijfers</b><p class="mini">Week en maand invullen</p></div></a>
-      <a class="kaart klik" href="#maandag"><span class="e" aria-hidden="true">🗓️</span><div><b>Maandagkwartier</b><p class="mini">15 minuten, 3 stappen</p></div></a>
-      <a class="kaart klik" href="#plan"><span class="e" aria-hidden="true">🗺️</span><div><b>Het plan</b><p class="mini">Zes maanden vooruit</p></div></a>
+      <a class="kaart klik" href="#doelen"><span class="e">${icoon('doel', 26)}</span><div><b>Doelen</b><p class="mini">Tot eind maart 2027</p></div></a>
+      <a class="kaart klik" href="#cijfers"><span class="e">${icoon('grafiek', 26)}</span><div><b>Cijfers</b><p class="mini">Week en maand invullen</p></div></a>
+      <a class="kaart klik" href="#maandag"><span class="e">${icoon('klok', 26)}</span><div><b>Maandagkwartier</b><p class="mini">15 minuten, 3 stappen</p></div></a>
+      <a class="kaart klik" href="#plan"><span class="e">${icoon('kaart', 26)}</span><div><b>Het plan</b><p class="mini">Zes maanden vooruit</p></div></a>
     </div>
+    <section class="kaart" style="margin-top:12px">
+      <p class="label" style="margin-bottom:10px">${icoon('thema', 14)} Weergave</p>
+      <div class="chips">${Object.entries(WEERGAVEN).map(([k, naam]) => `<button class="chip${huidigThema() === k ? ' aan' : ''}" data-actie="thema" data-thema="${k}" aria-pressed="${huidigThema() === k}">${naam}</button>`).join('')}</div>
+    </section>
     ${opslag.demo ? `
       <section class="kaart gloed" style="margin-top:12px">
         <h2>Je kijkt naar de demo</h2>
@@ -530,13 +539,13 @@ function viewMeer() {
 
 function viewDoelen() {
   const kaarten = S.doelen.map(doel => {
-    const m = metric(doel.metric) || { emoji: '🎯', decimalen: 0 };
+    const m = metric(doel.metric) || { decimalen: 0 };
     const laatst = laatsteMeting(S.metingen, doel.metric);
     const huidig = laatst ? Number(laatst.waarde) : null;
     const v = voortgang(doel, huidig);
     const geenDoel = doel.doel_maart == null;
     return `<article class="kaart doel">
-      <div class="kop"><h3>${m.emoji} ${esc(doel.label)}</h3>${isEigenaar() ? `<button class="link-knop" data-actie="doel-bewerk" data-metric="${esc(doel.metric)}">Aanpassen</button>` : ''}</div>
+      <div class="kop"><h3>${esc(doel.label)}</h3>${isEigenaar() ? `<button class="link-knop" data-actie="doel-bewerk" data-metric="${esc(doel.metric)}">Aanpassen</button>` : ''}</div>
       <div class="waarde">${getal(huidig ?? doel.start_waarde, m.decimalen)} <small>${huidig == null ? 'start' : 'nu'}${geenDoel ? '' : ` · doel ${getal(doel.doel_maart, m.decimalen)}`}</small></div>
       ${geenDoel ? '<p class="mini" style="margin-top:10px">Doel volgt na de nulmeting in oktober.</p>' : v ? `
         <div class="balk-groot" role="img" aria-label="${Math.round(v.procent * 100)} procent van het doel">
@@ -544,7 +553,7 @@ function viewDoelen() {
           ${v.tussenstap != null ? `<span class="merkpunt" style="left:${v.tussenstap * 100}%" title="Tussendoel december"></span>` : ''}
         </div>
         <div class="doel-voet"><span>Start ${getal(doel.start_waarde, m.decimalen)}</span><span>Dec ${getal(doel.doel_december, m.decimalen)}</span><span>Mrt ${getal(doel.doel_maart, m.decimalen)}</span></div>
-        ${v.gehaald ? '<p class="mini" style="margin-top:8px;color:var(--land)">🏆 Doel gehaald!</p>' : ''}`
+        ${v.gehaald ? '<p class="mini" style="margin-top:8px;color:var(--salie)">Doel gehaald.</p>' : ''}`
         : '<p class="mini" style="margin-top:10px">Nog geen meting. Vul de cijfers in om de voortgang te zien.</p>'}
     </article>`;
   }).join('');
@@ -588,7 +597,7 @@ function metingVelden(soort, periode) {
     const bestaand = S.metingen.find(x => x.metric === m.key && x.periode_start === periode);
     const waarden = reeks(S.metingen, m.key).map(x => Number(x.waarde));
     return `<div class="meting">
-      <label for="m-${m.key}"><span class="naam">${m.emoji} ${esc(m.label)}</span>${m.rol === S.lid.rol ? '<span class="jij">jij</span>' : ''}${vonk(waarden)}</label>
+      <label for="m-${m.key}"><span class="naam">${esc(m.label)}</span>${m.rol === S.lid.rol ? '<span class="jij">jij</span>' : ''}${vonk(waarden)}</label>
       <input id="m-${m.key}" type="number" inputmode="decimal" step="any" min="0" name="${m.key}" value="${bestaand ? Number(bestaand.waarde) : ''}" placeholder="–">
     </div>`;
   }).join('');
@@ -643,9 +652,9 @@ function viewMaandag() {
         ${open.length ? open.map(t => `<div class="taak">
             <div class="taak-tekst"><h3>${esc(t.titel)}</h3><p class="meta">${avatar(teamlid(t.eigenaar), true)} ${esc(teamlid(t.eigenaar).naam)}</p>
             <div class="chips" style="margin-top:10px">
-              <button class="chip" data-actie="kwartier-af" data-id="${esc(t.id)}">✅ Af</button>
-              <button class="chip${k.doorgeschoven.has(t.id) ? ' aan' : ''}" data-actie="kwartier-door" data-id="${esc(t.id)}">➡️ Schuift door</button>
-            </div></div></div>`).join('') : '<p class="leeg">Alles van vorige week is af. Lekker! 🙌</p>'}
+              <button class="chip" data-actie="kwartier-af" data-id="${esc(t.id)}">${icoon('check', 15)} Af</button>
+              <button class="chip${k.doorgeschoven.has(t.id) ? ' aan' : ''}" data-actie="kwartier-door" data-id="${esc(t.id)}">Schuift door</button>
+            </div></div></div>`).join('') : '<p class="leeg">Alles van vorige week is af. Lekker.</p>'}
       </section>
       <div class="knoppen"><button class="knop stil" data-actie="kwartier-stap" data-stap="1">← Terug</button><button class="knop" data-actie="kwartier-stap" data-stap="3">Volgende →</button></div>`;
   }
@@ -664,7 +673,7 @@ function viewMaandag() {
         <p class="fout-tekst" data-fout></p>
         <button class="knop stil" type="submit">+ Toevoegen</button>
       </form>` : ''}
-    <div class="knoppen"><button class="knop stil" data-actie="kwartier-stap" data-stap="2">← Terug</button><button class="knop" data-actie="kwartier-klaar">Klaar ✅</button></div>`;
+    <div class="knoppen"><button class="knop stil" data-actie="kwartier-stap" data-stap="2">← Terug</button><button class="knop" data-actie="kwartier-klaar">Klaar</button></div>`;
 }
 
 function viewPlan() {
@@ -679,7 +688,7 @@ function viewPlan() {
     </div>
     <section class="kaart"><h2 style="margin-bottom:12px">Spelregels</h2><ol class="regels">${SPELREGELS.map(r => `<li>${esc(r)}</li>`).join('')}</ol></section>
     <section class="kaart"><h2 style="margin-bottom:8px">Het ritme</h2>${RITME.map(r => `<div class="ritme-rij"><b>${esc(r.wanneer)}</b><span>${esc(r.wat)} <span class="vaag">· ${esc(r.wie)}</span></span></div>`).join('')}</section>
-    <section class="kaart"><h2 style="margin-bottom:8px">Vijf thema's</h2>${Object.values(THEMAS).map(t => `<div class="ritme-rij"><b>${t.emoji} ${esc(t.label)}</b><span>${esc(t.uitleg)}</span></div>`).join('')}</section>
+    <section class="kaart"><h2 style="margin-bottom:8px">Vijf thema's</h2>${Object.values(THEMAS).map(t => `<div class="ritme-rij"><b>${esc(t.label)}</b><span>${esc(t.uitleg)}</span></div>`).join('')}</section>
     ${config.planUrl ? `<a class="knop stil" href="${esc(config.planUrl)}" target="_blank" rel="noopener">Volledig plan openen</a>` : ''}`;
 }
 
@@ -689,7 +698,8 @@ function viewPlan() {
 function viewLogin(fout = '') {
   nav.hidden = true;
   app.innerHTML = `<section class="login binnen">
-    <div class="login-merk">Pellens<br><span class="grad">hub.</span></div>
+    ${monogram(84)}
+    <div class="login-merk">Pellens<br><em>marketing</em></div>
     <p class="slogan">Van eigen akker, op het vuur.</p>
     ${opslag.demo ? `
       <p class="sub" style="margin-bottom:12px">Demo: kies wie je bent.</p>
@@ -699,7 +709,7 @@ function viewLogin(fout = '') {
         <label class="veld"><span>E-mail</span><input type="email" name="email" autocomplete="email" required></label>
         <label class="veld"><span>Wachtwoord</span><input type="password" name="wachtwoord" autocomplete="current-password" required></label>
         <p class="fout-tekst" data-fout>${esc(fout)}</p>
-        <button class="knop" type="submit">Inloggen 🔥</button>
+        <button class="knop" type="submit">Inloggen</button>
         <div style="text-align:center;margin-top:10px"><button type="button" class="link-knop" data-actie="vergeten">Wachtwoord vergeten?</button></div>
       </form>`}
   </section>`;
@@ -708,7 +718,8 @@ function viewLogin(fout = '') {
 function viewWachtwoord() {
   nav.hidden = true;
   app.innerHTML = `<section class="login binnen">
-    <div class="login-merk" style="font-size:56px">Welkom<br><span class="grad">binnen.</span></div>
+    ${monogram(70)}
+    <div class="login-merk" style="font-size:56px">Welkom<br><em>binnen.</em></div>
     <p class="slogan">Kies een wachtwoord voor je account.</p>
     <form data-form="wachtwoord">
       <label class="veld"><span>Nieuw wachtwoord</span><input type="password" name="w1" minlength="8" autocomplete="new-password" required></label>
@@ -823,7 +834,7 @@ const acties = {
       confettiBij(el.querySelector('.vink'));
       if (aantal === totaal) {
         setTimeout(() => confetti({ aantal: 160, kracht: 1.2 }), 180);
-        melding('Alles af vandaag! 🔥');
+        melding('Alles af vandaag. Mooi werk.');
       }
     }
     try {
@@ -856,7 +867,7 @@ const acties = {
       const week = takenVoorWeek(S.taken, plusDagen(dezeMaandag(), 7 * S.weekVerschuiving));
       if (week.length && week.every(t => t.status === 'af')) {
         setTimeout(() => confetti({ aantal: 200, kracht: 1.3 }), 200);
-        melding('Alle weektaken af! 🏆');
+        melding('Alle weektaken af.');
       }
     }
     render();
@@ -890,7 +901,7 @@ const acties = {
     const veld = document.getElementById('post-tekst');
     try {
       await navigator.clipboard.writeText(veld.value);
-      melding('Gekopieerd. Plakken maar 📋');
+      melding('Gekopieerd. Plakken maar.');
     } catch {
       veld.select();
       melding('Selecteer en kopieer de tekst handmatig.', 'fout');
@@ -935,8 +946,8 @@ const acties = {
       const post = S.posts.find(p => p.id === postId);
       const opgeslagen = await bewaar(() => opslag.postOpslaan({ id: postId, spraakmemo_pad: pad }));
       Object.assign(post, opgeslagen);
-      document.getElementById('memo-speler').innerHTML = `<button type="button" class="knop stil klein" data-actie="memo-luister" data-pad="${esc(pad)}">▶️ Spraakmemo afspelen</button>`;
-      melding('Spraakmemo staat erbij 🎧');
+      document.getElementById('memo-speler').innerHTML = `<button type="button" class="knop stil klein" data-actie="memo-luister" data-pad="${esc(pad)}">${icoon('geluid')} Spraakmemo afspelen</button>`;
+      melding('Spraakmemo staat erbij.');
       return;
     }
     stopOpname();
@@ -1005,7 +1016,7 @@ const acties = {
     if (klaar) {
       confetti({ aantal: 180, kracht: 1.2 });
       tril(30);
-      melding(`${klaar} ${klaar === 1 ? 'bestand staat' : 'bestanden staan'} in de beeldbank ✨`);
+      melding(`${klaar} ${klaar === 1 ? 'bestand staat' : 'bestanden staan'} in de beeldbank.`);
     }
     if (!fouten) {
       setTimeout(() => {
@@ -1043,7 +1054,7 @@ const acties = {
     const minuten = Math.max(1, Math.round((Date.now() - S.kwartier.start) / 60000));
     confetti({ aantal: 220, kracht: 1.3 });
     tril(40);
-    melding(minuten <= 15 ? `Klaar in ${minuten} min. Terug naar de keuken! 🔥` : `Klaar in ${minuten} min. Volgende week sneller? 😉`);
+    melding(minuten <= 15 ? `Klaar in ${minuten} min. Terug naar de keuken.` : `Klaar in ${minuten} min. Volgende week iets sneller.`);
     S.kwartier = { stap: 1, start: 0, doorgeschoven: new Set() };
     location.hash = '#week';
   },
@@ -1068,13 +1079,19 @@ const acties = {
     if (!email) { foutIn(form, 'Vul eerst je e-mailadres in.'); return; }
     try {
       await opslag.wachtwoordVergeten(email);
-      melding('Check je mail voor een nieuwe link 📬');
+      melding('Check je mail voor een nieuwe link.');
     } catch (e) {
       foutIn(form, e.message);
     }
   },
 
   herlaad: () => location.reload(),
+
+  thema(el) {
+    kiesThema(el.dataset.thema);
+    tril(8);
+    render();
+  },
 
   async uitloggen() {
     await opslag.uitloggen();
@@ -1105,7 +1122,7 @@ const formulieren = {
       await opslag.nieuwWachtwoord(form.w1.value);
       S.lid = await opslag.sessie();
       await start();
-      melding('Welkom! 🔥');
+      melding('Welkom.');
     } catch (e) {
       foutIn(form, e.message);
     }
@@ -1160,9 +1177,9 @@ const formulieren = {
       S.posts.sort((a, b) => a.datum.localeCompare(b.datum));
       sluitPaneel();
       render();
-      if (actie === 'goedkeuren') { confetti({ aantal: 120 }); melding('Goedgekeurd. Mila kan door ✅'); }
-      else if (actie === 'geplaatst') { confetti({ aantal: 200, kracht: 1.3 }); melding('Live! 🎉'); }
-      else melding(id ? 'Opgeslagen' : 'Post staat in de planning 🗓️');
+      if (actie === 'goedkeuren') { confetti({ aantal: 120 }); melding('Goedgekeurd. Mila kan door.'); }
+      else if (actie === 'geplaatst') { confetti({ aantal: 200, kracht: 1.3 }); melding('Geplaatst.'); }
+      else melding(id ? 'Opgeslagen.' : 'Post staat in de planning.');
     } catch (e) {
       foutIn(form, e.message);
     }
@@ -1186,7 +1203,7 @@ const formulieren = {
 
   async cijfers(form) {
     await slaMetingenOp(form);
-    melding('Cijfers opgeslagen 📊');
+    melding('Cijfers opgeslagen.');
     confettiBij(form.querySelector('button[type=submit]'));
     render();
   },
