@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Pellens marketing</title>
+  <meta name="description" content="De marketing-hub van Restaurant Pellens en Brouwerij de Brouwer.">
+  <meta name="theme-color" content="#252e3d">
+  <link rel="manifest" href="manifest.json">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Pellens">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400..700&family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..600,0..100;1,9..144,300..600,0..100&display=swap">
+  <link rel="stylesheet" href="app.css">
+  <script src="thema-start.js"></script>
+  <script src="config.js"></script>
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <main class="app" id="app">
+    <div class="laden"><img src="icons/monogram.svg" width="72" height="58" alt="Pellens wordt geladen"></div>
+  </main>
+  <nav class="nav" id="nav" hidden aria-label="Hoofdmenu">
+    <a href="#vandaag" data-nav="vandaag">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3c2 3.5 5 5.2 5 9.2A5 5 0 0 1 7 12.2c0-1.6.7-2.9 1.6-3.9.2 1.6 1 2.6 2 3 0-3 .4-5.5 1.4-8.3z"/><path d="M12 21a2.6 2.6 0 0 1-2.6-2.6c0-1.4 1.4-2.6 2.6-4.1 1.2 1.5 2.6 2.7 2.6 4.1A2.6 2.6 0 0 1 12 21z"/></svg>
+      Vandaag
+    </a>
+    <a href="#week" data-nav="week">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><path d="m8 12 3 3 5-6"/></svg>
+      Week
+    </a>
+    <a href="#upload" data-nav="upload" class="plus" aria-label="Uploaden naar de beeldbank">
+      <span class="rond"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span>
+    </a>
+    <a href="#posts" data-nav="posts">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="2"/><rect x="13.5" y="3.5" width="7" height="7" rx="2"/><rect x="3.5" y="13.5" width="7" height="7" rx="2"/><rect x="13.5" y="13.5" width="7" height="7" rx="2"/></svg>
+      Posts
+    </a>
+    <a href="#meer" data-nav="meer">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+      Meer
+    </a>
+  </nav>
+</body>
+</html>

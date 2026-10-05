@@ -1,0 +1,17 @@
+{
+  "name": "pellens-marketing",
+  "private": true,
+  "type": "module",
+  "description": "Marketing-app van Restaurant Pellens: plan, weektaken, posts, beeldbank en cijfers.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "node scripts/build-static.mjs",
+    "test": "node --test \"tests/*.test.js\"",
+    "test:db": "bash supabase/tests/run-local.sh",
+    "test:browser": "node tests/browser/smoke.mjs",
+    "dev": "node scripts/build-static.mjs && npx --yes serve dist -l 4321",
+    "check": "npm test && npm run build"
+  }
+}
