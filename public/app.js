@@ -5,7 +5,7 @@ import {
   laatsteMeting, reeks, voortgang, maandVanPlan, getal, voorletter, geledenTekst, esc, MAX_TAKEN,
 } from './lib/logica.js';
 import { KANALEN, THEMAS, MERKEN, POST_STATUS, MAANDEN, RITME, SPELREGELS, METRICS, ROLLEN, metric } from './lib/plan.js';
-import { ONDERWERPEN, onderwerp } from './lib/onderwerpen.js';
+import { ONDERWERPEN, onderwerp, driveMapUrl } from './lib/onderwerpen.js';
 import { maakOpslag, DEMO_TEAM } from './lib/opslag.js';
 import { uploadNaarBeeldbank, mimeVan } from './lib/upload.js';
 import { dicterenKan, startDicteren, memoKan, startMemo } from './lib/spraak.js';
@@ -460,7 +460,35 @@ function postPaneel(post) {
     </form>`;
 }
 
+// Zolang de Google-koppeling niet is ingesteld, gaat uploaden via de Drive-app.
+// In de demo is dat te bekijken met ?demo&zonderdrive.
+function directUploaden() {
+  if (opslag.demo) return !new URLSearchParams(location.search).has('zonderdrive');
+  return Boolean(config.driveUpload);
+}
+
+function viewUploadViaDrive() {
+  return `
+    <h1 class="titel">Beeldbank</h1>
+    <p class="sub" style="margin:6px 0 16px">Alles komt in de BEELDBANK op Google Drive.</p>
+
+    <section class="kaart gloed">
+      <p class="label" style="margin-bottom:6px">${icoon('uploaden', 14)} Uploaden via Drive</p>
+      <h2>Kies de map en zet je beeld erin</h2>
+      <p class="sub" style="margin:6px 0 14px">Tik op een onderwerp. De map opent in Google Drive. Tik daar op + en kies Uploaden.
+        Direct uploaden vanuit deze app komt zodra de Google-koppeling klaar is.</p>
+      <a class="knop" href="${driveMapUrl('nieuw')}" target="_blank" rel="noopener">${icoon('beeld')} Open de beeldbank</a>
+    </section>
+
+    <h2 style="margin:20px 0 2px">Of kies direct de map</h2>
+    <div class="stickers">
+      ${ONDERWERPEN.filter(o => o.map).map(o => `<a class="sticker" href="${driveMapUrl(o.key)}" target="_blank" rel="noopener" style="text-decoration:none">${esc(o.label)}</a>`).join('')}
+    </div>
+    <p class="mini" style="text-align:center">Twijfel je over de map? Zet het in de beeldbank zelf, dan sorteert Mila het op vrijdag.</p>`;
+}
+
 function viewUpload() {
+  if (!directUploaden()) return viewUploadViaDrive();
   const u = S.upload;
   const voorbeelden = u.bestanden.map(b => {
     const mime = mimeVan(b.file);

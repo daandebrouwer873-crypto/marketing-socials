@@ -119,3 +119,11 @@ test('tekst wordt veilig getoond', () => {
   assert.equal(getal(4.55, 1), '4,6');
   assert.equal(getal(null), '–');
 });
+
+test('Drive-links per onderwerp, onbekend of zonder vaste map naar de beeldbank zelf', async () => {
+  const { driveMapUrl, ONDERWERPEN, BEELDBANK_MAP_ID } = await import('../public/lib/onderwerpen.js');
+  assert.equal(driveMapUrl('gerechten'), 'https://drive.google.com/drive/folders/1DkqZT9LFm6uDekhgZ4HBbC_ULJ56BwoM');
+  assert.equal(driveMapUrl('nieuw'), `https://drive.google.com/drive/folders/${BEELDBANK_MAP_ID}`);
+  assert.equal(driveMapUrl('bestaat-niet'), `https://drive.google.com/drive/folders/${BEELDBANK_MAP_ID}`);
+  assert.equal(ONDERWERPEN.filter(o => o.map).length, 12);
+});
