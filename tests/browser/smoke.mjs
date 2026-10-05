@@ -139,6 +139,16 @@ try {
     await page.locator('.bestand', { hasText: 'grill' }).first().waitFor();
   });
 
+  await stap('zonder Google-koppeling: uploaden via Drive', async () => {
+    await page.goto(`${basis}?demo&zonderdrive#upload`);
+    const knop = page.getByRole('link', { name: /Open de beeldbank/ });
+    await knop.waitFor();
+    assert.match(await knop.getAttribute('href'), /drive\/folders\/1CPgrC9ULe5qR9n-LPCrrvXMlwegjhQ1c$/);
+    assert.equal(await page.locator('a.sticker').count(), 12);
+    assert.equal(await page.locator('#dropzone').count(), 0);
+    await foto('upload-via-drive');
+  });
+
   await stap('cijfers opslaan', async () => {
     await page.goto(`${basis}?demo#cijfers`);
     await page.locator('#m-ig_volgers_pellens').fill('4012');

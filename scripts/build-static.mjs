@@ -17,6 +17,8 @@ const config = {
   supabaseUrl,
   supabaseAnonKey,
   demo: !(supabaseUrl && supabaseAnonKey),
+  // Alleen of de Google-koppeling is ingesteld, nooit de sleutel zelf.
+  driveUpload: Boolean(process.env.GOOGLE_CLIENT_EMAIL && process.env.GOOGLE_PRIVATE_KEY),
   planUrl: process.env.PLAN_URL || '',
 };
 

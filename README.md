@@ -43,6 +43,10 @@ Rollen: `eigenaar` (Daan), `social` (Mila), `manager` (Beau).
 
 ### 2. Google Drive (uploaden naar de beeldbank)
 
+Deze stap kan later. Zolang hij niet is gedaan, opent de app bij Beeldbank de juiste map
+in Google Drive en upload je via de Drive-app. Na deze stap uploadt de app zelf, rechtstreeks
+in de goede map, met naam en datum in de bestandsnaam.
+
 De app uploadt via een serviceaccount: een apart Google-account alleen voor de app.
 
 1. Open [console.cloud.google.com](https://console.cloud.google.com) en maak een project, bijvoorbeeld "Pellens marketing".
@@ -53,7 +57,7 @@ De app uploadt via een serviceaccount: een apart Google-account alleen voor de a
 5. Open in Google Drive de gedeelde drive waar **PELLENS Beeldbank** in staat, kies **Leden beheren**
    en voeg het e-mailadres van het serviceaccount toe (eindigt op `iam.gserviceaccount.com`) als **Inhoudsbeheerder**.
 
-De vaste onderwerpmappen staan in `netlify/lib/drive-mappen.js`. De mappen "Nieuw - te sorteren"
+De vaste onderwerpmappen staan in `public/lib/onderwerpen.js`. De mappen "Nieuw - te sorteren"
 en "Brouwerij de Brouwer" maakt de app zelf aan in de BEELDBANK bij de eerste upload.
 
 ### 3. Netlify (de website)
