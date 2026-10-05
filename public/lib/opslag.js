@@ -20,7 +20,6 @@ function vertaalFout(error) {
   if (/row-level security/i.test(tekst)) return 'Dit account hoort niet bij het team.';
   if (/Failed to fetch|NetworkError/i.test(tekst)) return 'Geen verbinding. Check je internet.';
   if (/Password should be/i.test(tekst)) return 'Kies een wachtwoord van minstens 8 tekens.';
-  if (/already registered|already been registered/i.test(tekst)) return 'Er is al een account met dit adres. Log in, of kies "Wachtwoord vergeten".';
   if (/rate limit|only request this after/i.test(tekst)) return 'Even geduld: probeer het over een paar minuten opnieuw.';
   return tekst || 'Er ging iets mis.';
 }
@@ -38,29 +37,37 @@ class SupabaseOpslag {
     this.demo = false;
   }
 
-  async start(opAuth) {
-    // Uitnodigings- en herstellinks komen binnen met type=invite of type=recovery in de url.
-    // Lees dat vóór Supabase de url opruimt.
-    const type = new URLSearchParams(location.hash.slice(1)).get('type');
+  async start() {
     if (!window.supabase) await laadScript(SUPABASE_JS);
     this.sb = window.supabase.createClient(this.config.supabaseUrl, this.config.supabaseAnonKey, {
-      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
     });
-    this.sb.auth.onAuthStateChange(gebeurtenis => {
-      if (gebeurtenis === 'PASSWORD_RECOVERY') opAuth('wachtwoord');
-    });
-    return type === 'invite' || type === 'recovery' ? 'wachtwoord' : null;
+    return null;
   }
 
+  // Inloggen gaat met het Pellens-account van de team-app. Toegang vraagt drie dingen:
+  // een actief account, een zelf gekozen wachtwoord en een plek op de marketinglijst.
   async sessie() {
     const { data } = await this.sb.auth.getSession();
-    const email = data.session && data.session.user && data.session.user.email;
-    if (!email) return null;
-    const lid = ok(await this.sb.from('teamleden').select('email,naam,rol').eq('email', email.toLowerCase()).maybeSingle());
-    if (!lid) {
+    const gebruiker = data.session && data.session.user;
+    if (!gebruiker || !gebruiker.email) return null;
+
+    const lidmaatschap = ok(await this.sb.from('app_memberships')
+      .select('active,must_change_password').eq('user_id', gebruiker.id).maybeSingle());
+    const weiger = async melding => {
       await this.sb.auth.signOut();
-      throw new Error('Dit account hoort niet bij het team. Vraag Daan om je toe te voegen.');
+      throw new Error(melding);
+    };
+    if (!lidmaatschap || !lidmaatschap.active) {
+      await weiger('Dit account heeft geen actieve toegang. Vraag Daan om hulp.');
     }
+    if (lidmaatschap.must_change_password) {
+      await weiger('Kies eerst je eigen wachtwoord in de team-app van Pellens. Log daarna hier in.');
+    }
+
+    const lid = ok(await this.sb.from('marketing_teamleden').select('email,naam,rol')
+      .eq('email', gebruiker.email.toLowerCase()).maybeSingle());
+    if (!lid) await weiger('Je Pellens-account heeft nog geen toegang tot de marketing-app. Vraag Daan om je toe te voegen.');
     this.email = lid.email;
     return lid;
   }
@@ -68,26 +75,6 @@ class SupabaseOpslag {
   async inloggen(email, wachtwoord) {
     ok(await this.sb.auth.signInWithPassword({ email: email.trim(), password: wachtwoord }));
     return this.sessie();
-  }
-
-  // Zelf een account maken. Toegang krijg je pas als je e-mailadres op de teamlijst staat:
-  // dat bewaakt de database, niet dit formulier.
-  async accountMaken(email, wachtwoord) {
-    const data = ok(await this.sb.auth.signUp({
-      email: email.trim(),
-      password: wachtwoord,
-      options: { emailRedirectTo: location.origin + location.pathname },
-    }));
-    return data.session ? this.sessie() : null;
-  }
-
-  async wachtwoordVergeten(email) {
-    ok(await this.sb.auth.resetPasswordForEmail(email.trim(), { redirectTo: location.origin + location.pathname }));
-  }
-
-  async nieuwWachtwoord(wachtwoord) {
-    ok(await this.sb.auth.updateUser({ password: wachtwoord }));
-    history.replaceState(null, '', location.pathname + '#vandaag');
   }
 
   async uitloggen() {
@@ -100,29 +87,29 @@ class SupabaseOpslag {
   }
 
   async team() {
-    return ok(await this.sb.from('teamleden').select('email,naam,rol').eq('actief', true).order('naam'));
+    return ok(await this.sb.from('marketing_teamleden').select('email,naam,rol').eq('actief', true).order('naam'));
   }
 
   async taken() {
     const grens = plusDagen(maandagVan(vandaag()), -7 * 10);
-    return ok(await this.sb.from('weektaken').select('*').or(`week_start.gte.${grens},status.eq.open`).order('created_at'));
+    return ok(await this.sb.from('marketing_weektaken').select('*').or(`week_start.gte.${grens},status.eq.open`).order('created_at'));
   }
 
   async taakToevoegen(taak) {
-    return ok(await this.sb.from('weektaken').insert(taak).select().single());
+    return ok(await this.sb.from('marketing_weektaken').insert(taak).select().single());
   }
 
   async taakBijwerken(id, velden) {
-    return ok(await this.sb.from('weektaken').update(velden).eq('id', id).select().single());
+    return ok(await this.sb.from('marketing_weektaken').update(velden).eq('id', id).select().single());
   }
 
   async taakVerwijderen(id) {
-    ok(await this.sb.from('weektaken').delete().eq('id', id));
+    ok(await this.sb.from('marketing_weektaken').delete().eq('id', id));
   }
 
   async posts() {
     const van = plusDagen(maandagVan(vandaag()), -7 * 6);
-    return ok(await this.sb.from('posts').select('*').gte('datum', van).order('datum').order('created_at'));
+    return ok(await this.sb.from('marketing_posts').select('*').gte('datum', van).order('datum').order('created_at'));
   }
 
   async postOpslaan(post) {
@@ -131,50 +118,50 @@ class SupabaseOpslag {
     delete velden.updated_at;
     delete velden.aangemaakt_door;
     delete velden.tekst_door;
-    if (id) return ok(await this.sb.from('posts').update(velden).eq('id', id).select().single());
-    return ok(await this.sb.from('posts').insert(velden).select().single());
+    if (id) return ok(await this.sb.from('marketing_posts').update(velden).eq('id', id).select().single());
+    return ok(await this.sb.from('marketing_posts').insert(velden).select().single());
   }
 
   async postVerwijderen(id) {
-    ok(await this.sb.from('posts').delete().eq('id', id));
+    ok(await this.sb.from('marketing_posts').delete().eq('id', id));
   }
 
   async checks(email) {
     const van = plusDagen(vandaag(), -120);
-    return ok(await this.sb.from('routine_checks').select('datum,routine,email').eq('email', email).gte('datum', van));
+    return ok(await this.sb.from('marketing_routine_checks').select('datum,routine,email').eq('email', email).gte('datum', van));
   }
 
   async check(datum, routine, aan) {
-    if (aan) ok(await this.sb.from('routine_checks').insert({ datum, routine }));
-    else ok(await this.sb.from('routine_checks').delete().match({ datum, routine, email: this.email }));
+    if (aan) ok(await this.sb.from('marketing_routine_checks').insert({ datum, routine }));
+    else ok(await this.sb.from('marketing_routine_checks').delete().match({ datum, routine, email: this.email }));
   }
 
   async metingen() {
-    return ok(await this.sb.from('metingen').select('metric,periode_start,waarde,ingevuld_door,updated_at').order('periode_start'));
+    return ok(await this.sb.from('marketing_metingen').select('metric,periode_start,waarde,ingevuld_door,updated_at').order('periode_start'));
   }
 
   async metingOpslaan(metric, periode_start, waarde) {
     if (waarde === null) {
-      ok(await this.sb.from('metingen').delete().match({ metric, periode_start }));
+      ok(await this.sb.from('marketing_metingen').delete().match({ metric, periode_start }));
       return;
     }
-    ok(await this.sb.from('metingen').upsert({ metric, periode_start, waarde }, { onConflict: 'metric,periode_start' }));
+    ok(await this.sb.from('marketing_metingen').upsert({ metric, periode_start, waarde }, { onConflict: 'metric,periode_start' }));
   }
 
   async doelen() {
-    return ok(await this.sb.from('doelen').select('*').order('volgorde'));
+    return ok(await this.sb.from('marketing_doelen').select('*').order('volgorde'));
   }
 
   async doelOpslaan(metric, velden) {
-    return ok(await this.sb.from('doelen').update(velden).eq('metric', metric).select().single());
+    return ok(await this.sb.from('marketing_doelen').update(velden).eq('metric', metric).select().single());
   }
 
   async uploads() {
-    return ok(await this.sb.from('uploads').select('*').order('created_at', { ascending: false }).limit(40));
+    return ok(await this.sb.from('marketing_uploads').select('*').order('created_at', { ascending: false }).limit(40));
   }
 
   async uploadVastleggen(rij) {
-    return ok(await this.sb.from('uploads').insert(rij).select().single());
+    return ok(await this.sb.from('marketing_uploads').insert(rij).select().single());
   }
 
   async startUpload(gegevens) {
@@ -192,12 +179,12 @@ class SupabaseOpslag {
   async memoOpslaan(postId, blob) {
     const ext = /mp4|m4a|aac/.test(blob.type) ? 'm4a' : /ogg/.test(blob.type) ? 'ogg' : 'webm';
     const pad = `${postId}/${Date.now()}.${ext}`;
-    ok(await this.sb.storage.from('spraakmemos').upload(pad, blob, { contentType: blob.type || 'audio/webm' }));
+    ok(await this.sb.storage.from('marketing-spraakmemos').upload(pad, blob, { contentType: blob.type || 'audio/webm' }));
     return pad;
   }
 
   async memoUrl(pad) {
-    const data = ok(await this.sb.storage.from('spraakmemos').createSignedUrl(pad, 60 * 30));
+    const data = ok(await this.sb.storage.from('marketing-spraakmemos').createSignedUrl(pad, 60 * 30));
     return data.signedUrl;
   }
 }
@@ -293,9 +280,6 @@ class DemoOpslag {
     return lid;
   }
 
-  async accountMaken(email) { return this.inloggen(email); }
-  async wachtwoordVergeten() {}
-  async nieuwWachtwoord() {}
 
   async uitloggen() {
     this.wie = null;

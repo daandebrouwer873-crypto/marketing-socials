@@ -12,7 +12,8 @@ await mkdir(out, { recursive: true });
 await cp(resolve(root, 'public'), out, { recursive: true });
 
 const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || '';
+// Dezelfde publieke sleutel als de team-app en Rails (heet daar SUPABASE_PUBLISHABLE_KEY).
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || '';
 const config = {
   supabaseUrl,
   supabaseAnonKey,

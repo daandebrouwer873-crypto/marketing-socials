@@ -34,8 +34,6 @@ const S = {
   cijferVerschuiving: 0,
   upload: { bestanden: [], onderwerp: null, bezig: false },
   kwartier: { stap: 1, start: 0, doorgeschoven: new Set() },
-  loginModus: 'inloggen',
-  loginEmail: '',
   paneel: null,
   opname: null,
   klok: 0,
@@ -740,51 +738,13 @@ function viewLogin(fout = '') {
 }
 
 function loginFormulier(fout = '') {
-  if (S.loginModus === 'mail') {
-    return `<div class="kaart gloed">
-      <p class="label" style="margin-bottom:6px">${icoon('check', 14)} Bijna binnen</p>
-      <h2>Check je mail</h2>
-      <p class="sub" style="margin:6px 0 14px">We stuurden een bevestigingslink naar <b>${esc(S.loginEmail)}</b>. Tik erop, en log daarna hier in met je wachtwoord.</p>
-      <button class="knop" data-actie="login-modus" data-modus="inloggen">Naar inloggen</button>
-    </div>`;
-  }
-  if (S.loginModus === 'nieuw') {
-    return `<form data-form="account">
-      <p class="label" style="margin-bottom:12px">Eerste keer hier</p>
-      <label class="veld"><span>E-mail</span><input type="email" name="email" autocomplete="email" required value="${esc(S.loginEmail || '')}"></label>
-      <label class="veld"><span>Kies een wachtwoord</span><input type="password" name="w1" minlength="8" autocomplete="new-password" required></label>
-      <label class="veld"><span>Nog een keer</span><input type="password" name="w2" minlength="8" autocomplete="new-password" required></label>
-      <p class="fout-tekst" data-fout>${esc(fout)}</p>
-      <button class="knop" type="submit">Account maken</button>
-      <div style="text-align:center;margin-top:10px"><button type="button" class="link-knop" data-actie="login-modus" data-modus="inloggen">Ik heb al een account</button></div>
-      <p class="mini" style="text-align:center;margin-top:8px">Alleen het team van Pellens komt binnen.</p>
-    </form>`;
-  }
   return `<form data-form="login">
-    <label class="veld"><span>E-mail</span><input type="email" name="email" autocomplete="email" required value="${esc(S.loginEmail || '')}"></label>
+    <label class="veld"><span>E-mail</span><input type="email" name="email" autocomplete="email" required></label>
     <label class="veld"><span>Wachtwoord</span><input type="password" name="wachtwoord" autocomplete="current-password" required></label>
     <p class="fout-tekst" data-fout>${esc(fout)}</p>
     <button class="knop" type="submit">Inloggen</button>
-    <div style="display:flex;justify-content:space-between;margin-top:10px">
-      <button type="button" class="link-knop" data-actie="login-modus" data-modus="nieuw">Eerste keer? Maak je account</button>
-      <button type="button" class="link-knop" data-actie="vergeten">Wachtwoord vergeten?</button>
-    </div>
+    <p class="mini" style="text-align:center;margin-top:14px">Log in met je Pellens-account, hetzelfde als in de team-app.<br>Wachtwoord vergeten? Dat regel je in de team-app.</p>
   </form>`;
-}
-
-function viewWachtwoord() {
-  nav.hidden = true;
-  app.innerHTML = `<section class="login binnen">
-    ${monogram(70)}
-    <div class="login-merk" style="font-size:56px">Welkom<br><em>binnen.</em></div>
-    <p class="slogan">Kies een wachtwoord voor je account.</p>
-    <form data-form="wachtwoord">
-      <label class="veld"><span>Nieuw wachtwoord</span><input type="password" name="w1" minlength="8" autocomplete="new-password" required></label>
-      <label class="veld"><span>Nog een keer</span><input type="password" name="w2" minlength="8" autocomplete="new-password" required></label>
-      <p class="fout-tekst" data-fout></p>
-      <button class="knop" type="submit">Opslaan en starten</button>
-    </form>
-  </section>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -1130,26 +1090,7 @@ const acties = {
     render();
   },
 
-  async vergeten() {
-    const form = document.querySelector('form[data-form="login"]');
-    const email = form.email.value.trim();
-    if (!email) { foutIn(form, 'Vul eerst je e-mailadres in.'); return; }
-    try {
-      await opslag.wachtwoordVergeten(email);
-      melding('Check je mail voor een nieuwe link.');
-    } catch (e) {
-      foutIn(form, e.message);
-    }
-  },
-
   herlaad: () => location.reload(),
-
-  'login-modus'(el) {
-    const veld = document.querySelector('input[name=email]');
-    if (veld && veld.value) S.loginEmail = veld.value.trim();
-    S.loginModus = el.dataset.modus;
-    viewLogin();
-  },
 
   thema(el) {
     kiesThema(el.dataset.thema);
@@ -1177,39 +1118,6 @@ const formulieren = {
     } catch (e) {
       foutIn(form, e.message);
       knop.disabled = false;
-    }
-  },
-
-  async account(form) {
-    if (form.w1.value !== form.w2.value) { foutIn(form, 'De wachtwoorden zijn niet hetzelfde.'); return; }
-    const knop = form.querySelector('button[type=submit]');
-    knop.disabled = true;
-    S.loginEmail = form.email.value.trim();
-    try {
-      const lid = await opslag.accountMaken(S.loginEmail, form.w1.value);
-      if (lid) {
-        S.lid = lid;
-        await start();
-        melding('Welkom.');
-        return;
-      }
-      S.loginModus = 'mail';
-      viewLogin();
-    } catch (e) {
-      foutIn(form, e.message);
-      knop.disabled = false;
-    }
-  },
-
-  async wachtwoord(form) {
-    if (form.w1.value !== form.w2.value) { foutIn(form, 'De wachtwoorden zijn niet hetzelfde.'); return; }
-    try {
-      await opslag.nieuwWachtwoord(form.w1.value);
-      S.lid = await opslag.sessie();
-      await start();
-      melding('Welkom.');
-    } catch (e) {
-      foutIn(form, e.message);
     }
   },
 
@@ -1426,8 +1334,7 @@ async function boot() {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
   try {
-    const modus = await opslag.start(() => viewWachtwoord());
-    if (modus === 'wachtwoord') { viewWachtwoord(); return; }
+    await opslag.start();
     S.lid = await opslag.sessie();
   } catch (e) {
     viewLogin(e.message);
