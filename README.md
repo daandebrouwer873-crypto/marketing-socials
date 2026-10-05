@@ -21,22 +21,24 @@ maar er wordt niets opgeslagen buiten je eigen browser.
 
 ### 1. Supabase (database en inloggen)
 
-1. Maak een gratis project aan op [supabase.com](https://supabase.com).
-2. Open **SQL Editor** en voer achter elkaar uit:
+De app draait in hetzelfde Supabase-project als de team-app van Pellens. Daan, Mila en Beau
+loggen dus in met hun bestaande Pellens-account en wachtwoord. Een wachtwoord vergeten of een
+eerste wachtwoord kiezen gaat via de team-app.
+
+1. Open in dat project de **SQL Editor** en voer achter elkaar uit:
    1. `supabase/migrations/001_marketing_app.sql`
    2. `supabase/migrations/002_spraakmemos.sql`
-   3. `supabase/seed.sql`, nadat je daarin de drie e-mailadressen hebt vervangen door de echte.
-3. Ga naar **Authentication → URL Configuration** en zet de **Site URL** op het adres van de app
-   (zie stap 3, bijvoorbeeld `https://pellens-hub.netlify.app`).
-4. Uitnodigen hoeft niet. Iedereen opent de app, kiest **Eerste keer? Maak je account**,
-   bevestigt via de mail en logt in. Alleen wie in `teamleden` staat (stap 2.3), ziet iets.
-5. Noteer onder **Project Settings → API** de **Project URL** en de **anon public key**.
+   3. `supabase/seed.sql`
+2. De laatste query toont wie er gekoppeld is: Daan als eigenaar, Mila als social, Beau als manager.
+   De koppeling loopt via hun profiel in de team-app (`app_memberships.profile_id`).
 
-Iemand toevoegen of weghalen doe je in de SQL Editor:
+Alles heeft het voorvoegsel `marketing_` en raakt geen bestaande tabellen. Toegang vraagt
+drie dingen: een actief Pellens-account, een zelf gekozen wachtwoord en een plek op de
+marketinglijst. Iemand toevoegen of weghalen:
 
 ```sql
-insert into public.teamleden (email, naam, rol) values ('nieuw@voorbeeld.nl', 'Naam', 'social');
-update public.teamleden set actief = false where email = 'oud@voorbeeld.nl';
+insert into public.marketing_teamleden (email, naam, rol) values ('naam@pellens.nl', 'Naam', 'social');
+update public.marketing_teamleden set actief = false where email = 'naam@pellens.nl';
 ```
 
 Rollen: `eigenaar` (Daan), `social` (Mila), `manager` (Beau).
@@ -68,13 +70,13 @@ en "Brouwerij de Brouwer" maakt de app zelf aan in de BEELDBANK bij de eerste up
 
    | Naam | Waarde |
    | --- | --- |
-   | `SUPABASE_URL` | De Project URL uit stap 1 |
-   | `SUPABASE_ANON_KEY` | De anon public key uit stap 1 |
+   | `SUPABASE_URL` | Dezelfde als bij de team-app en Rails |
+   | `SUPABASE_PUBLISHABLE_KEY` | Dezelfde publieke sleutel als bij de team-app en Rails |
    | `GOOGLE_CLIENT_EMAIL` | `client_email` uit het JSON-bestand van stap 2 |
    | `GOOGLE_PRIVATE_KEY` | `private_key` uit hetzelfde bestand, inclusief `-----BEGIN` en `-----END` |
    | `PLAN_URL` | Optioneel: link naar het volledige marketingplan |
 
-3. Start een nieuwe deploy. Zet daarna het Netlify-adres als Site URL in Supabase (stap 1.3).
+3. Start een nieuwe deploy.
 
 ### 4. Op de telefoon
 

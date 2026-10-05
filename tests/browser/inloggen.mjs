@@ -1,5 +1,5 @@
 // Test het echte inlogpad (geen demo) tegen een nagebootste Supabase-client:
-// account maken, mail bevestigen, inloggen, uitloggen en een buitenstaander weigeren.
+// inloggen met het Pellens-account van de team-app, en wie er (nog) niet in mag.
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
@@ -32,18 +32,24 @@ const server = http.createServer(async (req, res) => {
 await new Promise(r => server.listen(0, '127.0.0.1', r));
 const basis = `http://localhost:${server.address().port}/`;
 
-// Een kleine Supabase-namaak: gebruikers, één teamlid, lege tabellen.
+// Een kleine Supabase-namaak met Pellens-accounts zoals in de team-app.
 const NEP_SUPABASE = `
 (function () {
-  var gebruikers = JSON.parse(localStorage.getItem('nep-gebruikers') || '{"vreemde@test.nl":{"pw":"geheim123","bevestigd":true}}');
+  var gebruikers = {
+    'mila@test.nl': { id: 'u-mila', pw: 'akker2026' },
+    'nieuw@test.nl': { id: 'u-nieuw', pw: 'tijdelijk1' },
+    'frits@test.nl': { id: 'u-frits', pw: 'wijn2026' },
+    'oud@test.nl': { id: 'u-oud', pw: 'weg2026' }
+  };
+  var lidmaatschappen = {
+    'u-mila': { active: true, must_change_password: false },
+    'u-nieuw': { active: true, must_change_password: true },
+    'u-frits': { active: true, must_change_password: false },
+    'u-oud': { active: false, must_change_password: false }
+  };
+  var marketing = [{ email: 'mila@test.nl', naam: 'Mila', rol: 'social', actief: true }];
   var sessie = JSON.parse(localStorage.getItem('nep-sessie') || 'null');
-  var team = [{ email: 'mila@test.nl', naam: 'Mila', rol: 'social', actief: true }];
-  window.nepLog = JSON.parse(localStorage.getItem('nep-log') || '[]');
-  function bewaar() {
-    localStorage.setItem('nep-gebruikers', JSON.stringify(gebruikers));
-    localStorage.setItem('nep-sessie', JSON.stringify(sessie));
-    localStorage.setItem('nep-log', JSON.stringify(window.nepLog));
-  }
+  function bewaar() { localStorage.setItem('nep-sessie', JSON.stringify(sessie)); }
   function antwoord(data, error) { return Promise.resolve({ data: data, error: error || null }); }
   function vraag(tabel) {
     var filters = {};
@@ -58,40 +64,31 @@ const NEP_SUPABASE = `
     };
     function rijen() {
       if (!sessie) return [];
-      var lid = team.some(function (t) { return t.email === sessie.user.email; });
-      if (!lid) return [];
-      if (tabel === 'teamleden') return team.filter(function (t) { return !filters.email || t.email === filters.email; });
+      var lid = lidmaatschappen[sessie.user.id];
+      if (tabel === 'app_memberships') return filters.user_id === sessie.user.id && lid ? [lid] : [];
+      // Zoals de rijbeveiliging: alleen actief, eigen wachtwoord gekozen en op de marketinglijst.
+      var toegang = lid && lid.active && !lid.must_change_password && marketing.some(function (m) { return m.email === sessie.user.email; });
+      if (!toegang) return [];
+      if (tabel === 'marketing_teamleden') return marketing.filter(function (m) { return !filters.email || m.email === filters.email; });
       return [];
     }
     return q;
   }
   window.supabase = { createClient: function () { return {
     auth: {
-      onAuthStateChange: function () { return { data: { subscription: { unsubscribe: function () {} } } }; },
       getSession: function () { return antwoord({ session: sessie }); },
-      signUp: function (a) {
-        window.nepLog.push('signUp:' + a.email + ':' + (a.options && a.options.emailRedirectTo));
-        if (gebruikers[a.email]) { bewaar(); return antwoord({ user: null, session: null }, { message: 'User already registered' }); }
-        gebruikers[a.email] = { pw: a.password, bevestigd: false };
-        bewaar();
-        return antwoord({ user: { email: a.email }, session: null });
-      },
       signInWithPassword: function (a) {
         var g = gebruikers[a.email];
         if (!g || g.pw !== a.password) return antwoord({}, { message: 'Invalid login credentials' });
-        if (!g.bevestigd) return antwoord({}, { message: 'Email not confirmed' });
-        sessie = { access_token: 't', user: { email: a.email } };
+        sessie = { access_token: 't', user: { id: g.id, email: a.email } };
         bewaar();
         return antwoord({ session: sessie });
       },
-      signOut: function () { sessie = null; bewaar(); return antwoord({}); },
-      resetPasswordForEmail: function () { return antwoord({}); },
-      updateUser: function () { return antwoord({}); }
+      signOut: function () { sessie = null; bewaar(); return antwoord({}); }
     },
     from: vraag,
     storage: { from: function () { return {}; } }
   }; } };
-  window.nepBevestig = function (email) { gebruikers[email].bevestigd = true; bewaar(); };
 }());
 `;
 
@@ -119,49 +116,46 @@ async function stap(naam, werk) {
 }
 
 try {
-  await stap('inlogscherm zonder demo', async () => {
+  async function login(email, wachtwoord) {
+    const form = page.locator('form[data-form="login"]');
+    await form.locator('input[name=email]').fill(email);
+    await form.locator('input[name=wachtwoord]').fill(wachtwoord);
+    await form.locator('button[type=submit]').click();
+  }
+  const melding = async patroon => page.waitForFunction(
+    p => new RegExp(p).test(document.querySelector('[data-fout]').textContent), patroon.source);
+
+  await stap('inlogscherm: alleen het Pellens-account', async () => {
     await page.goto(basis);
     await page.locator('form[data-form="login"]').waitFor();
     assert.equal(await page.locator('[data-actie="demo-als"]').count(), 0);
+    assert.match(await page.locator('.login').innerText(), /hetzelfde als in de team-app/);
+    assert.equal(await page.getByText(/Maak je account/).count(), 0);
   });
 
-  await stap('account maken: wachtwoorden moeten gelijk zijn', async () => {
-    await page.getByRole('button', { name: /Eerste keer/ }).click();
-    const form = page.locator('form[data-form="account"]');
-    await form.locator('input[name=email]').fill('mila@test.nl');
-    await form.locator('input[name=w1]').fill('akker2026');
-    await form.locator('input[name=w2]').fill('akker2027');
-    await form.locator('button[type=submit]').click();
-    assert.match(await form.locator('[data-fout]').innerText(), /niet hetzelfde/);
+  await stap('fout wachtwoord', async () => {
+    await login('mila@test.nl', 'fout');
+    await melding(/klopt niet/);
   });
 
-  await stap('account maken stuurt bevestigingsmail', async () => {
-    const form = page.locator('form[data-form="account"]');
-    await form.locator('input[name=w2]').fill('akker2026');
-    await form.locator('button[type=submit]').click();
-    await page.getByRole('heading', { name: 'Check je mail' }).waitFor();
-    assert.match(await page.locator('.login').innerText(), /mila@test\.nl/);
-    const log = await page.evaluate(() => window.nepLog);
-    assert.deepEqual(log, [`signUp:mila@test.nl:${basis}`]);
+  await stap('eerst eigen wachtwoord kiezen in de team-app', async () => {
+    await login('nieuw@test.nl', 'tijdelijk1');
+    await melding(/eigen wachtwoord in de team-app/);
+    assert.equal(await page.locator('h1.hey').count(), 0);
   });
 
-  await stap('onbevestigd inloggen geeft een duidelijke melding', async () => {
-    await page.getByRole('button', { name: 'Naar inloggen' }).click();
-    const form = page.locator('form[data-form="login"]');
-    assert.equal(await form.locator('input[name=email]').inputValue(), 'mila@test.nl');
-    await form.locator('input[name=wachtwoord]').fill('akker2026');
-    await form.locator('button[type=submit]').click();
-    assert.match(await form.locator('[data-fout]').innerText(), /Bevestig eerst/);
+  await stap('account zonder actieve toegang', async () => {
+    await login('oud@test.nl', 'weg2026');
+    await melding(/geen actieve toegang/);
   });
 
-  await stap('na bevestigen: fout wachtwoord en daarna binnen', async () => {
-    await page.evaluate(() => window.nepBevestig('mila@test.nl'));
-    const form = page.locator('form[data-form="login"]');
-    await form.locator('input[name=wachtwoord]').fill('fout');
-    await form.locator('button[type=submit]').click();
-    await page.waitForFunction(() => /klopt niet/.test(document.querySelector('[data-fout]').textContent));
-    await form.locator('input[name=wachtwoord]').fill('akker2026');
-    await form.locator('button[type=submit]').click();
+  await stap('collega zonder marketingrol', async () => {
+    await login('frits@test.nl', 'wijn2026');
+    await melding(/nog geen toegang tot de marketing-app/);
+  });
+
+  await stap('Mila logt in met het Pellens-account', async () => {
+    await login('mila@test.nl', 'akker2026');
     await page.locator('h1.hey', { hasText: 'Mila' }).waitFor();
   });
 
@@ -171,25 +165,6 @@ try {
     await page.goto(`${basis}#meer`);
     await page.locator('[data-actie="uitloggen"]').click();
     await page.locator('form[data-form="login"]').waitFor();
-  });
-
-  await stap('een account buiten het team komt er niet in', async () => {
-    const form = page.locator('form[data-form="login"]');
-    await form.locator('input[name=email]').fill('vreemde@test.nl');
-    await form.locator('input[name=wachtwoord]').fill('geheim123');
-    await form.locator('button[type=submit]').click();
-    await page.waitForFunction(() => /hoort niet bij het team/.test(document.querySelector('[data-fout]').textContent));
-    assert.equal(await page.locator('h1.hey').count(), 0);
-  });
-
-  await stap('bestaand adres opnieuw aanmelden', async () => {
-    await page.getByRole('button', { name: /Eerste keer/ }).click();
-    const form = page.locator('form[data-form="account"]');
-    await form.locator('input[name=email]').fill('mila@test.nl');
-    await form.locator('input[name=w1]').fill('akker2026');
-    await form.locator('input[name=w2]').fill('akker2026');
-    await form.locator('button[type=submit]').click();
-    assert.match(await form.locator('[data-fout]').innerText(), /al een account/);
   });
 
   assert.deepEqual(fouten, [], `Fouten in de pagina:\n${fouten.join('\n')}`);

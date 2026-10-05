@@ -38,7 +38,7 @@ beforeEach(() => {
         ? antwoord(200, { email: 'Mila@Test.nl' })
         : antwoord(401, { msg: 'invalid' });
     }
-    if (adres.startsWith('https://proj.supabase.co/rest/v1/teamleden')) {
+    if (adres.startsWith('https://proj.supabase.co/rest/v1/marketing_teamleden')) {
       assert.match(adres, /email=eq\.mila%40test\.nl/);
       return antwoord(200, teamlid ? [teamlid] : []);
     }
