@@ -20,6 +20,8 @@ function vertaalFout(error) {
   if (/row-level security/i.test(tekst)) return 'Dit account hoort niet bij het team.';
   if (/Failed to fetch|NetworkError/i.test(tekst)) return 'Geen verbinding. Check je internet.';
   if (/Password should be/i.test(tekst)) return 'Kies een wachtwoord van minstens 8 tekens.';
+  if (/already registered|already been registered/i.test(tekst)) return 'Er is al een account met dit adres. Log in, of kies "Wachtwoord vergeten".';
+  if (/rate limit|only request this after/i.test(tekst)) return 'Even geduld: probeer het over een paar minuten opnieuw.';
   return tekst || 'Er ging iets mis.';
 }
 
@@ -66,6 +68,17 @@ class SupabaseOpslag {
   async inloggen(email, wachtwoord) {
     ok(await this.sb.auth.signInWithPassword({ email: email.trim(), password: wachtwoord }));
     return this.sessie();
+  }
+
+  // Zelf een account maken. Toegang krijg je pas als je e-mailadres op de teamlijst staat:
+  // dat bewaakt de database, niet dit formulier.
+  async accountMaken(email, wachtwoord) {
+    const data = ok(await this.sb.auth.signUp({
+      email: email.trim(),
+      password: wachtwoord,
+      options: { emailRedirectTo: location.origin + location.pathname },
+    }));
+    return data.session ? this.sessie() : null;
   }
 
   async wachtwoordVergeten(email) {
@@ -280,6 +293,7 @@ class DemoOpslag {
     return lid;
   }
 
+  async accountMaken(email) { return this.inloggen(email); }
   async wachtwoordVergeten() {}
   async nieuwWachtwoord() {}
 
