@@ -28,8 +28,8 @@ maar er wordt niets opgeslagen buiten je eigen browser.
    3. `supabase/seed.sql`, nadat je daarin de drie e-mailadressen hebt vervangen door de echte.
 3. Ga naar **Authentication → URL Configuration** en zet de **Site URL** op het adres van de app
    (zie stap 3, bijvoorbeeld `https://pellens-hub.netlify.app`).
-4. Ga naar **Authentication → Users → Invite user** en nodig Daan, Mila en Beau uit.
-   Ze krijgen een mail, tikken op de link en kiezen in de app hun wachtwoord.
+4. Uitnodigen hoeft niet. Iedereen opent de app, kiest **Eerste keer? Maak je account**,
+   bevestigt via de mail en logt in. Alleen wie in `teamleden` staat (stap 2.3), ziet iets.
 5. Noteer onder **Project Settings → API** de **Project URL** en de **anon public key**.
 
 Iemand toevoegen of weghalen doe je in de SQL Editor:

@@ -34,6 +34,8 @@ const S = {
   cijferVerschuiving: 0,
   upload: { bestanden: [], onderwerp: null, bezig: false },
   kwartier: { stap: 1, start: 0, doorgeschoven: new Set() },
+  loginModus: 'inloggen',
+  loginEmail: '',
   paneel: null,
   opname: null,
   klok: 0,
@@ -733,14 +735,41 @@ function viewLogin(fout = '') {
       <p class="sub" style="margin-bottom:12px">Demo: kies wie je bent.</p>
       <div class="demo-keuze">${DEMO_TEAM.map(l => `<button class="knop ${l.rol === 'social' ? '' : 'stil'}" data-actie="demo-als" data-email="${l.email}">${avatar(l, true)} ${esc(l.naam)} <small>${esc(ROLLEN[l.rol].label)}</small></button>`).join('')}</div>`
     : `
-      <form data-form="login">
-        <label class="veld"><span>E-mail</span><input type="email" name="email" autocomplete="email" required></label>
-        <label class="veld"><span>Wachtwoord</span><input type="password" name="wachtwoord" autocomplete="current-password" required></label>
-        <p class="fout-tekst" data-fout>${esc(fout)}</p>
-        <button class="knop" type="submit">Inloggen</button>
-        <div style="text-align:center;margin-top:10px"><button type="button" class="link-knop" data-actie="vergeten">Wachtwoord vergeten?</button></div>
-      </form>`}
+      ${loginFormulier(fout)}`}
   </section>`;
+}
+
+function loginFormulier(fout = '') {
+  if (S.loginModus === 'mail') {
+    return `<div class="kaart gloed">
+      <p class="label" style="margin-bottom:6px">${icoon('check', 14)} Bijna binnen</p>
+      <h2>Check je mail</h2>
+      <p class="sub" style="margin:6px 0 14px">We stuurden een bevestigingslink naar <b>${esc(S.loginEmail)}</b>. Tik erop, en log daarna hier in met je wachtwoord.</p>
+      <button class="knop" data-actie="login-modus" data-modus="inloggen">Naar inloggen</button>
+    </div>`;
+  }
+  if (S.loginModus === 'nieuw') {
+    return `<form data-form="account">
+      <p class="label" style="margin-bottom:12px">Eerste keer hier</p>
+      <label class="veld"><span>E-mail</span><input type="email" name="email" autocomplete="email" required value="${esc(S.loginEmail || '')}"></label>
+      <label class="veld"><span>Kies een wachtwoord</span><input type="password" name="w1" minlength="8" autocomplete="new-password" required></label>
+      <label class="veld"><span>Nog een keer</span><input type="password" name="w2" minlength="8" autocomplete="new-password" required></label>
+      <p class="fout-tekst" data-fout>${esc(fout)}</p>
+      <button class="knop" type="submit">Account maken</button>
+      <div style="text-align:center;margin-top:10px"><button type="button" class="link-knop" data-actie="login-modus" data-modus="inloggen">Ik heb al een account</button></div>
+      <p class="mini" style="text-align:center;margin-top:8px">Alleen het team van Pellens komt binnen.</p>
+    </form>`;
+  }
+  return `<form data-form="login">
+    <label class="veld"><span>E-mail</span><input type="email" name="email" autocomplete="email" required value="${esc(S.loginEmail || '')}"></label>
+    <label class="veld"><span>Wachtwoord</span><input type="password" name="wachtwoord" autocomplete="current-password" required></label>
+    <p class="fout-tekst" data-fout>${esc(fout)}</p>
+    <button class="knop" type="submit">Inloggen</button>
+    <div style="display:flex;justify-content:space-between;margin-top:10px">
+      <button type="button" class="link-knop" data-actie="login-modus" data-modus="nieuw">Eerste keer? Maak je account</button>
+      <button type="button" class="link-knop" data-actie="vergeten">Wachtwoord vergeten?</button>
+    </div>
+  </form>`;
 }
 
 function viewWachtwoord() {
@@ -1115,6 +1144,13 @@ const acties = {
 
   herlaad: () => location.reload(),
 
+  'login-modus'(el) {
+    const veld = document.querySelector('input[name=email]');
+    if (veld && veld.value) S.loginEmail = veld.value.trim();
+    S.loginModus = el.dataset.modus;
+    viewLogin();
+  },
+
   thema(el) {
     kiesThema(el.dataset.thema);
     tril(8);
@@ -1138,6 +1174,27 @@ const formulieren = {
     try {
       S.lid = await opslag.inloggen(form.email.value, form.wachtwoord.value);
       await start();
+    } catch (e) {
+      foutIn(form, e.message);
+      knop.disabled = false;
+    }
+  },
+
+  async account(form) {
+    if (form.w1.value !== form.w2.value) { foutIn(form, 'De wachtwoorden zijn niet hetzelfde.'); return; }
+    const knop = form.querySelector('button[type=submit]');
+    knop.disabled = true;
+    S.loginEmail = form.email.value.trim();
+    try {
+      const lid = await opslag.accountMaken(S.loginEmail, form.w1.value);
+      if (lid) {
+        S.lid = lid;
+        await start();
+        melding('Welkom.');
+        return;
+      }
+      S.loginModus = 'mail';
+      viewLogin();
     } catch (e) {
       foutIn(form, e.message);
       knop.disabled = false;
