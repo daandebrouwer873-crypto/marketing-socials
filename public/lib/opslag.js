@@ -1,5 +1,5 @@
 // Gegevenslaag: Supabase in het echt, of een demo die alleen in deze browser bewaart.
-import { maandagVan, plusDagen, vandaag, vorigeMaand, maandStart } from './logica.js';
+import { maandagVan, plusDagen, vandaag, vorigeMaand, routinesVoor } from './logica.js';
 
 const SUPABASE_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.min.js';
 
@@ -126,9 +126,13 @@ class SupabaseOpslag {
     ok(await this.sb.from('marketing_posts').delete().eq('id', id));
   }
 
+  // Met e-mail: je eigen vinkjes van 120 dagen, voor je reeks. Zonder: die van het hele team
+  // over 45 dagen, voor het overzicht. Zo blijft elk verzoek onder de 1000 rijen van Supabase.
   async checks(email) {
-    const van = plusDagen(vandaag(), -120);
-    return ok(await this.sb.from('marketing_routine_checks').select('datum,routine,email').eq('email', email).gte('datum', van));
+    const van = plusDagen(vandaag(), email ? -120 : -45);
+    let vraag = this.sb.from('marketing_routine_checks').select('datum,routine,email').gte('datum', van);
+    if (email) vraag = vraag.eq('email', email);
+    return ok(await vraag.order('datum', { ascending: false }));
   }
 
   async check(datum, routine, aan) {
@@ -192,7 +196,7 @@ class SupabaseOpslag {
 // ---------------------------------------------------------------------------
 // Demo: voorbeeldgegevens in localStorage, geen server nodig.
 
-const DEMO_SLEUTEL = 'pellens-marketing-demo-v1';
+const DEMO_SLEUTEL = 'pellens-marketing-demo-v2';
 const DEMO_TEAM = [
   { email: 'daan@demo', naam: 'Daan', rol: 'eigenaar' },
   { email: 'mila@demo', naam: 'Mila', rol: 'social' },
@@ -208,13 +212,35 @@ function demoStart() {
   const ma = maandagVan(nu);
   const vorige = plusDagen(ma, -7);
   const t = new Date().toISOString();
+  const geleden = dagen => new Date(Date.now() - dagen * 864e5).toISOString();
   const post = (dag, velden) => ({
     id: uuid(), datum: plusDagen(ma, dag), merk: 'pellens', thema: 'vuur', tekst: null, tekst_door: null,
     tekst_goedgekeurd: false, spraakmemo_pad: null, beeld: [], status: 'tekst_nodig',
     aangemaakt_door: 'mila@demo', created_at: t, updated_at: t, ...velden,
   });
+  const klaar = tekst => ({ tekst, tekst_door: 'daan@demo', tekst_goedgekeurd: true });
   const meting = (metric, periode_start, waarde) => ({ metric, periode_start, waarde, ingevuld_door: 'mila@demo', updated_at: t });
-  const weken = [-5, -4, -3, -2, -1].map(n => plusDagen(ma, 7 * n));
+  const weken = Array.from({ length: 10 }, (_, i) => plusDagen(ma, -7 * (10 - i)));
+  const m1 = vorigeMaand(nu);
+  const m2 = vorigeMaand(m1);
+  const m3 = vorigeMaand(m2);
+  const perWeek = (metric, waarden) => weken.map((w, i) => meting(metric, w, waarden[i]));
+  const perMaand = (metric, [a, b]) => [meting(metric, m2, a), meting(metric, m1, b)];
+
+  // Vinkjes van de afgelopen twee weken: bijna alles af, met hier en daar een gemiste dag.
+  // Vandaag zijn Daan en Beau al begonnen.
+  const checks = [];
+  DEMO_TEAM.forEach((lid, k) => {
+    for (let n = 14; n >= 1; n -= 1) {
+      const datum = plusDagen(nu, -n);
+      if ((n + k * 3) % 9 === 0) continue;
+      for (const r of routinesVoor(lid.rol, datum)) checks.push({ datum, routine: r.key, email: lid.email });
+    }
+  });
+  for (const lid of [DEMO_TEAM[0], DEMO_TEAM[2]]) {
+    for (const r of routinesVoor(lid.rol, nu).slice(0, 1)) checks.push({ datum: nu, routine: r.key, email: lid.email });
+  }
+
   return {
     taken: [
       { id: uuid(), titel: 'Nulmeting: volgers, reviews en Google-profiel', eigenaar: 'mila@demo', minimumversie: 'Alleen de volgers en het aantal reviews', klaar_wanneer: 'De stand van 1 oktober staat in de app', week_start: ma, status: 'open', created_at: t },
@@ -222,20 +248,45 @@ function demoStart() {
       { id: uuid(), titel: 'Reviewkaartjes bij de koffie', eigenaar: 'beau@demo', minimumversie: 'Kaartjes liggen klaar bij de pas', klaar_wanneer: 'Beau en Frits weten wanneer wel en niet', week_start: vorige, status: 'af', afgerond_op: t, created_at: t },
     ],
     posts: [
+      post(-18, { kanaal: 'reel', thema: 'land', idee: 'Pompoenoogst op De Vloeiweide, van akker tot keuken.', ...klaar('Vanochtend de pompoenen binnengehaald. Vanavond op het vuur.'), status: 'geplaatst' }),
+      post(-16, { kanaal: 'foto', thema: 'tafel', idee: 'Het eerste bord van het najaarsmenu.', ...klaar('Het najaarsmenu staat. Dit is waar het begint.'), status: 'geplaatst' }),
+      post(-13, { kanaal: 'story', merk: 'brouwerij', thema: 'land', idee: 'Hop drogen in de schuur.', ...klaar('De hop hangt te drogen. Over een paar weken proef je hem.'), status: 'geplaatst' }),
+      post(-11, { kanaal: 'google', thema: 'boeken', idee: 'Lunch Les Brioches weer op Google.', ...klaar('Vrijdag tot en met zondag lunch: Les Brioches, van eigen akker.'), status: 'geplaatst' }),
+      post(-9, { kanaal: 'carrousel', thema: 'mensen', idee: 'Het team achter de pas: Jonas, Stijn en Frits.', ...klaar('Drie man achter de pas. Dit zijn ze.'), status: 'geplaatst' }),
+      post(-6, { kanaal: 'reel', merk: 'brouwerij', thema: 'vuur', idee: 'Brouwdag: de ketel op temperatuur.', ...klaar('Brouwdag. De ketel draait sinds zes uur.'), status: 'geplaatst' }),
+      post(-3, { kanaal: 'reel', thema: 'land', idee: 'Oogst op De Vloeiweide', ...klaar('Vanochtend geoogst, vanavond op het vuur.'), status: 'geplaatst' }),
       post(2, { kanaal: 'reel', thema: 'vuur', idee: 'Houtduif op de grill, van dichtbij. 15 seconden, eindigt op het bord.', beeld: [{ naam: '2026-09-11_Sabine_clip-14.mp4' }] }),
-      post(3, { kanaal: 'carrousel', thema: 'tafel', idee: 'Het najaarsmenu in vijf borden: hamachi, wijting, langoustine, houtduif, peer.', tekst: 'Zeven gangen van het land en het vuur. Dit is de herfst bij Pellens, tot half november.', tekst_door: 'daan@demo', tekst_goedgekeurd: true, status: 'tekst_klaar' }),
+      post(3, { kanaal: 'carrousel', thema: 'tafel', idee: 'Het najaarsmenu in vijf borden: hamachi, wijting, langoustine, houtduif, peer.', ...klaar('Zeven gangen van het land en het vuur. Dit is de herfst bij Pellens, tot half november.'), status: 'tekst_klaar' }),
       post(4, { kanaal: 'story', thema: 'mensen', idee: 'Jonas aan de mise-en-place, wie staat er vanavond.' }),
       post(5, { kanaal: 'reel', merk: 'brouwerij', thema: 'land', idee: 'Kombucha van eigen oogst: van fles tot glas naast het menu.' }),
-      post(5, { kanaal: 'google', thema: 'boeken', idee: 'Lunch Les Brioches, vrijdag tot en met zondag.', tekst: 'Vanaf vrijdag weer lunch: Les Brioches, van eigen akker.', tekst_door: 'daan@demo', tekst_goedgekeurd: true, status: 'ingepland' }),
-      post(-3, { kanaal: 'reel', thema: 'land', idee: 'Oogst op De Vloeiweide', tekst: 'Vanochtend geoogst, vanavond op het vuur.', tekst_door: 'daan@demo', tekst_goedgekeurd: true, status: 'geplaatst' }),
+      post(5, { kanaal: 'google', thema: 'boeken', idee: 'Lunch Les Brioches, vrijdag tot en met zondag.', ...klaar('Vanaf vrijdag weer lunch: Les Brioches, van eigen akker.'), status: 'ingepland' }),
+      post(6, { kanaal: 'story', thema: 'tafel', idee: 'Zondagmiddag aan tafel: de lange lunch.', status: 'idee' }),
+      post(8, { kanaal: 'reel', thema: 'vuur', idee: 'Wild op het vuur: hert van de jager uit de buurt.' }),
+      post(9, { kanaal: 'linkedin', thema: 'land', idee: 'Wat we deze maand van het land leerden.', status: 'idee', aangemaakt_door: 'daan@demo' }),
+      post(10, { kanaal: 'mail', thema: 'boeken', idee: 'Kerstaanbod naar de gastenlijst.', status: 'idee' }),
+      post(11, { kanaal: 'carrousel', merk: 'brouwerij', thema: 'tafel', idee: 'Drie Brouwerij-dranken naast het menu.' }),
+      post(12, { kanaal: 'reel', thema: 'mensen', idee: 'Beau over de wijnkaart in vijftien seconden.', status: 'idee' }),
     ],
-    checks: [],
+    checks,
     metingen: [
-      ...weken.map((w, i) => meting('ig_volgers_pellens', w, 3769 + i * 46)),
-      ...weken.map((w, i) => meting('gasten_diner', w, [27, 31, 29, 30, 32][i])),
-      ...weken.map((w, i) => meting('gasten_lunch', w, [6, 9, 8, 11, 12][i])),
-      meting('google_reviews', vorigeMaand(nu), 241),
-      meting('google_reviews', maandStart(vorigeMaand(vorigeMaand(nu))), 236),
+      ...perWeek('ig_volgers_pellens', [3612, 3655, 3690, 3712, 3769, 3801, 3846, 3880, 3931, 3978]),
+      ...perWeek('ig_volgers_brouwerij', [781, 788, 790, 799, 812, 818, 825, 829, 841, 852]),
+      ...perWeek('gasten_diner', [27, 29, 31, 28, 30, 31, 29, 30, 32, 33]),
+      ...perWeek('gasten_lunch', [6, 7, 9, 8, 9, 10, 11, 11, 12, 13]),
+      meting('google_reviews', m3, 232),
+      ...perMaand('google_reviews', [236, 241]),
+      ...perMaand('google_score', [4.6, 4.6]),
+      ...perMaand('tripadvisor_reviews', [409, 412]),
+      ...perMaand('emailadressen', [22, 64]),
+      ...perMaand('ig_linkklikken', [150, 182]),
+      ...perMaand('gbp_weergaven', [4980, 5420]),
+      ...perMaand('gbp_route', [280, 312]),
+      ...perMaand('gbp_bellen', [101, 96]),
+      ...perMaand('gbp_website', [215, 243]),
+      ...perMaand('res_instagram', [11, 14]),
+      ...perMaand('res_google', [33, 38]),
+      ...perMaand('res_website', [47, 52]),
+      ...perMaand('res_telefoon', [66, 61]),
     ],
     doelen: [
       { metric: 'gasten_diner', label: 'Gasten per diner', start_waarde: 31, doel_december: 33, doel_maart: 35, volgorde: 1 },
@@ -246,8 +297,12 @@ function demoStart() {
       { metric: 'emailadressen', label: 'E-mailadressen van gasten', start_waarde: 0, doel_december: 150, doel_maart: 400, volgorde: 6 },
     ],
     uploads: [
-      { id: uuid(), drive_file_id: 'demo', naam: `${vandaag()}_Mila_Vuur-en-grill_IMG-2210.jpg`, onderwerp: 'vuur', mime: 'image/jpeg', grootte: 2400000, link: null, email: 'mila@demo', created_at: t },
-      { id: uuid(), drive_file_id: 'demo', naam: `${vandaag()}_Beau_Nieuw-te-sorteren_IMG-0042.jpg`, onderwerp: 'nieuw', mime: 'image/jpeg', grootte: 1900000, link: null, email: 'beau@demo', created_at: t },
+      { id: uuid(), drive_file_id: 'demo', naam: `${vandaag()}_Mila_Vuur-en-grill_IMG-2210.jpg`, onderwerp: 'vuur', mime: 'image/jpeg', grootte: 2400000, link: null, email: 'mila@demo', created_at: geleden(0.1) },
+      { id: uuid(), drive_file_id: 'demo', naam: `${vandaag()}_Beau_Nieuw-te-sorteren_IMG-0042.jpg`, onderwerp: 'nieuw', mime: 'image/jpeg', grootte: 1900000, link: null, email: 'beau@demo', created_at: geleden(0.3) },
+      { id: uuid(), drive_file_id: 'demo', naam: `${plusDagen(nu, -2)}_Mila_Gerechten_houtduif.mp4`, onderwerp: 'gerechten', mime: 'video/mp4', grootte: 48000000, link: null, email: 'mila@demo', created_at: geleden(2) },
+      { id: uuid(), drive_file_id: 'demo', naam: `${plusDagen(nu, -3)}_Daan_Akker_pompoenen.jpg`, onderwerp: 'akker', mime: 'image/jpeg', grootte: 3100000, link: null, email: 'daan@demo', created_at: geleden(3) },
+      { id: uuid(), drive_file_id: 'demo', naam: `${plusDagen(nu, -6)}_Mila_Mensen_jonas-pas.jpg`, onderwerp: 'mensen', mime: 'image/jpeg', grootte: 2700000, link: null, email: 'mila@demo', created_at: geleden(6) },
+      { id: uuid(), drive_file_id: 'demo', naam: `${plusDagen(nu, -9)}_Beau_Zaal_tafel-zeven.jpg`, onderwerp: 'zaal', mime: 'image/jpeg', grootte: 2200000, link: null, email: 'beau@demo', created_at: geleden(9) },
     ],
   };
 }
@@ -340,7 +395,7 @@ class DemoOpslag {
     this.bewaar();
   }
 
-  async checks(email) { return this.data.checks.filter(c => c.email === email); }
+  async checks(email) { return structuredClone(this.data.checks.filter(c => !email || c.email === email)); }
 
   async check(datum, routine, aan) {
     this.data.checks = this.data.checks.filter(c => !(c.datum === datum && c.routine === routine && c.email === this.wie));

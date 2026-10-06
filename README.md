@@ -6,6 +6,11 @@ en zetten foto's en video's direct in de BEELDBANK op Google Drive.
 
 De app volgt het marketingplan oktober 2026 – maart 2027:
 
+- **Overzicht:** op laptop en groot scherm de startpagina, met een zijbalk. Alles op één scherm:
+  wat aandacht vraagt, de cijfers met verschil en verloop, een contentkalender van twee weken,
+  de pijplijn van posts, het team vandaag, de weektaken, grafieken van gasten en volgers,
+  de doelen met "op schema of niet", reserveringen per bron, thema's, kanalen en de beeldbank.
+  Op de telefoon staat het onder "Meer".
 - **Vandaag:** de vaste routines per persoon en per dag, met een streak en een voortgangsring.
 - **Week:** maximaal drie taken per week. Wat niet af is, schuift door en telt mee.
 - **Posts:** de planning per merk (Pellens of Brouwerij). Daan spreekt de tekst in

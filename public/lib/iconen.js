@@ -18,6 +18,10 @@ const PADEN = {
   geluid: '<path d="M5 10v4M9 7v10M13 9v6M17 6v12M21 11v2"/>',
   uploaden: '<path d="M12 16V5"/><path d="m7.5 9.5 4.5-4.5 4.5 4.5"/><path d="M5 19h14"/>',
   thema: '<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17A8.5 8.5 0 0 0 12 3.5z" fill="currentColor"/>',
+  raster: '<rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/>',
+  let: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v5.5"/><circle cx="12" cy="16.3" r=".7" fill="currentColor"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  uit: '<path d="M14 5h4a1.5 1.5 0 0 1 1.5 1.5v11A1.5 1.5 0 0 1 18 19h-4"/><path d="m10 8-4 4 4 4"/><path d="M6 12h9"/>',
 };
 
 export function icoon(naam, maat = 18) {

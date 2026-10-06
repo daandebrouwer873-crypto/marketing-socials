@@ -226,6 +226,83 @@ try {
     await foto('meer');
   });
 
+  // Laptop en groot scherm: zijbalk, overzicht, grafieken met tooltip, paneel aan de zijkant.
+  const groot = await browser.newPage({ viewport: { width: 1440, height: 900 }, locale: 'nl-NL', timezoneId: 'Europe/Amsterdam' });
+  groot.on('pageerror', e => fouten.push(`groot scherm: ${e.message}`));
+  groot.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) fouten.push(`groot scherm console: ${m.text()}`); });
+  const geenZijwaartsScrollen = async () => {
+    const [scroll, breedte] = await groot.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
+    assert.ok(scroll <= breedte, `pagina scrolt zijwaarts: ${scroll} > ${breedte}`);
+  };
+
+  await stap('groot scherm: overzicht met zijbalk', async () => {
+    await groot.goto(`${basis}?demo`);
+    await groot.locator('[data-actie="demo-als"][data-email="daan@demo"]').click();
+    await groot.locator('.dash-kop h1', { hasText: 'Daan' }).waitFor();
+    assert.match(groot.url(), /#overzicht$/);
+    assert.ok(await groot.locator('#zijbalk').isVisible());
+    assert.ok(await groot.locator('#nav').isHidden());
+    assert.equal(await groot.locator('.kpis .stat').count(), 7);
+    assert.equal(await groot.locator('.kalender .kal-week').count(), 2);
+    assert.ok(await groot.locator('.kal-post').count() > 5);
+    assert.equal(await groot.locator('.teamrij').count(), 3);
+    await groot.locator('.grafiek-vlak svg').first().waitFor();
+    await geenZijwaartsScrollen();
+  });
+
+  await stap('groot scherm: tooltip op grafiek en kalender', async () => {
+    // De laatste week van de eerste grafiek (gasten per dienst). Scrollen verbergt de tooltip,
+    // dus eerst in beeld brengen en dan pas aanwijzen.
+    const raak = groot.locator('figure.grafiek').first().locator('.raak').last();
+    await raak.scrollIntoViewIfNeeded();
+    await groot.waitForTimeout(250);
+    await raak.hover();
+    await groot.locator('.tip').waitFor();
+    assert.match(await groot.locator('.tip').innerText(), /wk \d+[\s\S]*Diner/);
+    assert.ok(await groot.locator('.grafiek .punt.actief').count() >= 1);
+    await groot.locator('.kal-post').first().hover();
+    assert.match(await groot.locator('.tip').innerText(), /status/);
+  });
+
+  await stap('groot scherm: post openen in het zijpaneel', async () => {
+    await groot.locator('.kal-post').first().click();
+    const paneel = groot.locator('.paneel.open');
+    await paneel.waitFor();
+    await groot.waitForTimeout(400);
+    const vak = await paneel.boundingBox();
+    assert.ok(vak.x > 700 && vak.height > 800, `paneel staat niet rechts: ${JSON.stringify(vak)}`);
+    await groot.keyboard.press('Escape');
+    await groot.locator('.paneel').waitFor({ state: 'detached' });
+  });
+
+  await stap('groot scherm: kalender verschuift, zijbalk navigeert', async () => {
+    const eersteWeek = await groot.locator('.kal-wk').first().innerText();
+    await groot.locator('[data-actie="kal-verder"]').click();
+    assert.notEqual(await groot.locator('.kal-wk').first().innerText(), eersteWeek);
+    await groot.locator('[data-actie="kal-nu"]').click();
+    assert.equal(await groot.locator('.kal-wk').first().innerText(), eersteWeek);
+    for (const [pagina, kenmerk] of [['posts', '.postraster'], ['doelen', '.doelen-raster'], ['cijfers', '.cijfertabel'], ['plan', '.plan-onder']]) {
+      await groot.locator(`.menu a[href="#${pagina}"]`).click();
+      await groot.locator(kenmerk).first().waitFor();
+      assert.equal(await groot.locator(`.menu a[href="#${pagina}"]`).getAttribute('aria-current'), 'page');
+      await geenZijwaartsScrollen();
+    }
+  });
+
+  await stap('groot scherm: weergave wisselen in de zijbalk', async () => {
+    await groot.locator('.zij-thema [data-thema="groen"]').click();
+    assert.equal(await groot.evaluate(() => document.documentElement.dataset.thema), 'groen');
+    await groot.locator('.zij-thema [data-thema="donker"]').click();
+  });
+
+  await stap('van groot naar klein scherm: zijbalk weg, balk onderin terug', async () => {
+    await groot.setViewportSize({ width: 390, height: 844 });
+    await groot.locator('#nav').waitFor();
+    assert.ok(await groot.locator('#zijbalk').isHidden());
+    assert.equal(await groot.locator('#zijbalk [data-actie]').count(), 0);
+  });
+  await groot.close();
+
   assert.deepEqual(fouten, [], `Fouten in de browser:\n${fouten.join('\n')}`);
   console.log('Browsertest geslaagd.');
 } finally {

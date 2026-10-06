@@ -3,7 +3,7 @@ const CACHE = 'pellens-marketing-__VERSIE__';
 const SCHIL = [
   './', 'index.html', 'app.css', 'app.js', 'config.js', 'manifest.json',
   'thema.js', 'thema-start.js',
-  'lib/logica.js', 'lib/plan.js', 'lib/opslag.js', 'lib/upload.js', 'lib/spraak.js', 'lib/effecten.js', 'lib/onderwerpen.js', 'lib/iconen.js',
+  'lib/logica.js', 'lib/plan.js', 'lib/opslag.js', 'lib/upload.js', 'lib/spraak.js', 'lib/effecten.js', 'lib/onderwerpen.js', 'lib/iconen.js', 'lib/grafiek.js',
   'icons/icon-192.png', 'icons/monogram.svg',
 ];
 
