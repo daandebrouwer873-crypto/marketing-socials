@@ -5,6 +5,8 @@
 
 [build.environment]
   NODE_VERSION = "22"
+  # Bewust publiek, net als in de team-app: deze waarden staan in config.js.
+  SECRETS_SCAN_OMIT_KEYS = "SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,PLAN_URL"
 
 [functions]
   directory = "netlify/functions"
