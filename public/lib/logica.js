@@ -1,5 +1,5 @@
 // Pure rekenregels van de app: datums, weken, de drie-takenregel, routines, streaks en voortgang.
-import { MAANDEN, ROUTINES } from './plan.js';
+import { MAANDEN, ROUTINES, PLAN_START, PLAN_DECEMBER, PLAN_EIND } from './plan.js';
 
 const DAG = 864e5;
 const DAGEN = ['zo', 'ma', 'di', 'wo', 'do', 'vr', 'za'];
@@ -181,9 +181,78 @@ export function voortgang(doel, huidig) {
   };
 }
 
+// Waar je volgens het plan nu zou moeten staan: rechte lijn van de start naar het
+// decemberdoel, en daarna naar het doel van maart.
+export function verwachtOpDatum(doel, datum) {
+  const { start_waarde: start, doel_december: dec, doel_maart: maart } = doel;
+  if (start == null || maart == null) return null;
+  const punten = [[PLAN_START, start], ...(dec == null ? [] : [[PLAN_DECEMBER, dec]]), [PLAN_EIND, maart]];
+  if (datum <= punten[0][0]) return start;
+  for (let i = 1; i < punten.length; i += 1) {
+    const [d0, w0] = punten[i - 1];
+    const [d1, w1] = punten[i];
+    if (datum <= d1) return w0 + ((utc(datum) - utc(d0)) / (utc(d1) - utc(d0))) * (w1 - w0);
+  }
+  return maart;
+}
+
+// Voor, op of achter op schema, met een marge van 5 procent van de hele afstand.
+export function opSchema(doel, huidig, datum) {
+  const verwacht = verwachtOpDatum(doel, datum);
+  if (verwacht == null || huidig == null || doel.doel_maart === doel.start_waarde) return null;
+  const afstand = (huidig - verwacht) / (doel.doel_maart - doel.start_waarde);
+  const status = afstand >= 0.05 ? 'voor' : afstand >= -0.05 ? 'op' : 'achter';
+  return { verwacht, status, verwachtDeel: (verwacht - doel.start_waarde) / (doel.doel_maart - doel.start_waarde) };
+}
+
+// Laatste en voorlaatste meting, voor een tegel met verschil.
+export function verschil(metingen, metric) {
+  const lijst = reeks(metingen, metric, 2);
+  const huidig = lijst.at(-1) || null;
+  const vorig = lijst.length > 1 ? lijst[0] : null;
+  return {
+    huidig: huidig ? Number(huidig.waarde) : null,
+    vorig: vorig ? Number(vorig.waarde) : null,
+    delta: huidig && vorig ? Number(huidig.waarde) - Number(vorig.waarde) : null,
+    periode: huidig ? huidig.periode_start : null,
+  };
+}
+
+// Waarden per periode, met null waar niets is ingevuld, zodat een grafiek gaten kan tonen.
+export function waardenPer(metingen, metric, perioden) {
+  const per = new Map(metingen.filter(m => m.metric === metric).map(m => [m.periode_start, Number(m.waarde)]));
+  return perioden.map(p => (per.has(p) ? per.get(p) : null));
+}
+
+// De laatste n weken, als maandagen, eindigend bij (en inclusief) de gegeven maandag.
+export function weken(totMaandag, n) {
+  return Array.from({ length: n }, (_, i) => plusDagen(totMaandag, -7 * (n - 1 - i)));
+}
+
+// De laatste n maanden, als eerste dag van de maand, eindigend bij de gegeven maand.
+export function maanden(totMaand, n) {
+  const lijst = [maandStart(totMaand)];
+  while (lijst.length < n) lijst.unshift(vorigeMaand(lijst[0]));
+  return lijst;
+}
+
+export function telPer(lijst, sleutel) {
+  const telling = {};
+  for (const item of lijst) {
+    const k = typeof sleutel === 'function' ? sleutel(item) : item[sleutel];
+    telling[k] = (telling[k] || 0) + 1;
+  }
+  return telling;
+}
+
 export function maandVanPlan(datum) {
   const sleutel = datum.slice(0, 7);
   return MAANDEN.find(m => m.maand === sleutel) || (sleutel < MAANDEN[0].maand ? MAANDEN[0] : MAANDEN.at(-1));
+}
+
+export function volgendeMaandVanPlan(datum) {
+  const i = MAANDEN.indexOf(maandVanPlan(datum));
+  return MAANDEN[i + 1] || null;
 }
 
 // ---- Weergave ----

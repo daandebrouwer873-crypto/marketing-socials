@@ -1,5 +1,10 @@
 // De inhoud van het marketingplan (oktober 2026 – maart 2027) zoals de app hem gebruikt.
 
+// Looptijd van het plan: de doelen gelden van 1 oktober tot en met 31 maart, met een tussenstand eind december.
+export const PLAN_START = '2026-10-01';
+export const PLAN_DECEMBER = '2026-12-31';
+export const PLAN_EIND = '2027-03-31';
+
 export const ROLLEN = Object.freeze({
   eigenaar: { label: 'Eigenaar', taak: 'Verhaal, teksten en maandthema' },
   social: { label: 'Social media manager', taak: 'Content maken, plaatsen en cijfers' },

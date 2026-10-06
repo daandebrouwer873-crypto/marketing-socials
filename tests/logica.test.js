@@ -4,6 +4,7 @@ import {
   vandaag, plusDagen, weekdag, maandagVan, vorigeMaand, weekNummer, weekBereik, korteDatum,
   takenVoorWeek, vrijePlekken, routinesVoor, streak, voortgang, filterPosts, postsTekstNodig,
   laatsteMeting, maandVanPlan, esc, getal,
+  verwachtOpDatum, opSchema, verschil, waardenPer, weken, maanden, telPer, volgendeMaandVanPlan,
 } from '../public/lib/logica.js';
 
 test('datums rekenen in Nederlandse tijd', () => {
@@ -126,4 +127,46 @@ test('Drive-links per onderwerp, onbekend of zonder vaste map naar de beeldbank 
   assert.equal(driveMapUrl('nieuw'), `https://drive.google.com/drive/folders/${BEELDBANK_MAP_ID}`);
   assert.equal(driveMapUrl('bestaat-niet'), `https://drive.google.com/drive/folders/${BEELDBANK_MAP_ID}`);
   assert.equal(ONDERWERPEN.filter(o => o.map).length, 12);
+});
+
+test('waar je volgens het plan nu zou moeten staan', () => {
+  const doel = { start_waarde: 0, doel_december: 150, doel_maart: 400 };
+  assert.equal(verwachtOpDatum(doel, '2026-09-15'), 0);
+  assert.equal(verwachtOpDatum(doel, '2026-10-01'), 0);
+  assert.equal(verwachtOpDatum(doel, '2026-12-31'), 150);
+  assert.equal(verwachtOpDatum(doel, '2027-03-31'), 400);
+  assert.equal(verwachtOpDatum(doel, '2027-06-01'), 400);
+  // Halverwege oktober tot eind december: 46 van de 91 dagen.
+  assert.ok(Math.abs(verwachtOpDatum(doel, '2026-11-16') - (150 * 46) / 91) < 1e-9);
+  // Zonder decemberdoel: rechte lijn naar maart.
+  assert.ok(Math.abs(verwachtOpDatum({ start_waarde: 0, doel_december: null, doel_maart: 181 }, '2026-12-31') - 91) < 1e-9);
+  assert.equal(verwachtOpDatum({ start_waarde: null, doel_maart: 10 }, '2026-11-01'), null);
+});
+
+test('voor, op of achter op schema', () => {
+  const doel = { start_waarde: 0, doel_december: 150, doel_maart: 400 };
+  assert.equal(opSchema(doel, 150, '2026-12-31').status, 'op');
+  assert.equal(opSchema(doel, 200, '2026-12-31').status, 'voor');
+  assert.equal(opSchema(doel, 100, '2026-12-31').status, 'achter');
+  assert.equal(opSchema(doel, 140, '2026-12-31').status, 'op');
+  assert.equal(opSchema(doel, 150, '2026-12-31').verwachtDeel, 150 / 400);
+  assert.equal(opSchema(doel, null, '2026-12-31'), null);
+  assert.equal(opSchema({ start_waarde: 5, doel_maart: 5 }, 5, '2026-12-31'), null);
+});
+
+test('verschil, reeksen met gaten, weken en maanden', () => {
+  const metingen = [
+    { metric: 'v', periode_start: '2026-09-21', waarde: 10 },
+    { metric: 'v', periode_start: '2026-10-05', waarde: 14 },
+    { metric: 'v', periode_start: '2026-09-28', waarde: 12 },
+  ];
+  assert.deepEqual(verschil(metingen, 'v'), { huidig: 14, vorig: 12, delta: 2, periode: '2026-10-05' });
+  assert.deepEqual(verschil(metingen.slice(0, 1), 'v'), { huidig: 10, vorig: null, delta: null, periode: '2026-09-21' });
+  assert.deepEqual(verschil([], 'v'), { huidig: null, vorig: null, delta: null, periode: null });
+  assert.deepEqual(weken('2026-10-05', 3), ['2026-09-21', '2026-09-28', '2026-10-05']);
+  assert.deepEqual(waardenPer(metingen, 'v', ['2026-09-14', '2026-09-21', '2026-10-05']), [null, 10, 14]);
+  assert.deepEqual(maanden('2027-01-20', 3), ['2026-11-01', '2026-12-01', '2027-01-01']);
+  assert.deepEqual(telPer([{ a: 'x' }, { a: 'y' }, { a: 'x' }], 'a'), { x: 2, y: 1 });
+  assert.equal(volgendeMaandVanPlan('2026-10-06').naam, 'November');
+  assert.equal(volgendeMaandVanPlan('2027-03-10'), null);
 });

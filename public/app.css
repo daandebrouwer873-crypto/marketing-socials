@@ -71,6 +71,11 @@
   color-scheme: dark;
 }
 
+/* Grafiekkleuren: goud en blauw, altijd in die volgorde. Gecontroleerd op contrast en
+   kleurenblindheid tegen de kaartkleur van elke weergave. */
+:root { --g1: #b98a2c; --g2: #5f90de; }
+[data-thema="licht"] { --g1: #a87a1f; --g2: #3f74c0; }
+
 :root {
   --r: 18px;
   --serif: 'Fraunces', Georgia, 'Times New Roman', serif;
@@ -537,4 +542,265 @@ ol.regels li::before { content: counter(r); flex: none; display: grid; place-ite
 
 @media (min-width: 720px) {
   .app { padding-top: 36px; }
+}
+
+/* ---- Grafieken ---- */
+
+.grafiek { margin: 0; }
+.grafiek .legenda { margin-bottom: 8px; }
+.grafiek-vlak { position: relative; width: 100%; }
+.grafiek-vlak svg { display: block; overflow: visible; }
+.grafiek .raster { stroke: var(--lijn); stroke-width: 1; }
+.grafiek .as { fill: var(--vaag); font-size: 11px; font-family: var(--sans); font-variant-numeric: tabular-nums; }
+.grafiek .lijn { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.grafiek .vlak { opacity: 0.1; }
+.grafiek .eindpunt { stroke: var(--kaart); stroke-width: 2; }
+.grafiek .eindlabel { fill: var(--tekst); font-size: 12px; font-weight: 600; font-family: var(--sans); }
+.grafiek .punt { stroke: var(--kaart); stroke-width: 2; opacity: 0; transition: opacity 0.12s ease; pointer-events: none; }
+.grafiek .punt.actief { opacity: 1; }
+.grafiek .kruis { stroke: var(--lijn-sterk); stroke-width: 1; opacity: 0; pointer-events: none; }
+.grafiek .kruis.actief { opacity: 1; }
+.grafiek .raak { fill: transparent; cursor: crosshair; outline: none; }
+.grafiek .raak:focus-visible { fill: color-mix(in srgb, var(--tekst) 7%, transparent); }
+.legenda { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--stil); }
+.legenda > span { display: inline-flex; align-items: center; gap: 6px; }
+.swatch { display: inline-block; width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.sleutel-lijn { display: inline-block; width: 14px; height: 2px; border-radius: 2px; }
+.tabelweergave { margin-top: 6px; }
+.tabelweergave summary, .spelregels summary { cursor: pointer; font-size: 12.5px; color: var(--vaag); width: max-content; }
+.tabelweergave table, .cijfertabel { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 6px; }
+.tabelweergave th, .tabelweergave td, .cijfertabel th, .cijfertabel td {
+  padding: 6px 8px; border-bottom: 1px solid var(--lijn); text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.tabelweergave th:first-child, .tabelweergave td:first-child, .cijfertabel th:first-child { text-align: left; white-space: normal; }
+.tabelweergave thead th, .cijfertabel thead th { color: var(--stil); font-weight: 600; font-size: 12px; }
+.cijfertabel tbody th { font-weight: 500; }
+.cijfertabel td.goed { color: var(--salie); }
+.cijfertabel td.slecht { color: var(--rood); }
+.cijfertabel.compact th, .cijfertabel.compact td { padding: 5px 6px; }
+.tabel-scroll { overflow-x: auto; }
+
+.tip {
+  position: fixed; left: 0; top: 0; z-index: 90; pointer-events: none; min-width: 120px; max-width: 300px;
+  padding: 9px 12px; border-radius: 12px; font-size: 13px; line-height: 1.4;
+  background: var(--kaart-sterk); border: 1px solid var(--lijn-sterk); box-shadow: 0 16px 40px -16px var(--schaduw);
+}
+.tip-kop { color: var(--stil); font-size: 12px; margin-bottom: 4px; }
+.tip-rij { display: flex; align-items: baseline; gap: 8px; }
+.tip-rij b { font-weight: 600; color: var(--tekst); }
+.tip-rij span { color: var(--stil); }
+.tip-sleutel { width: 12px; height: 2px; border-radius: 2px; flex: none; align-self: center; }
+
+/* Cijfertegel: label, waarde, verschil, verloop. */
+.stat {
+  display: flex; flex-direction: column; gap: 6px; min-height: 150px; padding: 14px 16px;
+  border-radius: var(--r); border: 1px solid var(--lijn); background: var(--kaart); text-decoration: none;
+  box-shadow: 0 14px 40px -28px var(--schaduw); transition: border-color 0.2s ease;
+}
+.stat.klik:hover { border-color: var(--lijn-sterk); }
+.stat-label { font-size: 13px; color: var(--stil); font-weight: 500; }
+.stat-waarde { font-family: var(--sans); font-size: 30px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.05; }
+.delta { display: inline-flex; align-items: center; gap: 5px; flex-wrap: wrap; font-size: 12px; color: var(--stil); }
+.delta b { font-weight: 600; color: var(--tekst); }
+.delta.goed svg, .delta.goed b { color: var(--salie); }
+.delta.slecht svg, .delta.slecht b { color: var(--rood); }
+.stat-onder { margin-top: auto; display: grid; gap: 4px; }
+.stat-voet { font-size: 12px; color: var(--vaag); }
+.vonkje { flex: none; overflow: visible; }
+.vonkje polyline { fill: none; stroke: var(--vaag); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.vonkje circle { fill: var(--g1); stroke: var(--kaart); stroke-width: 2; }
+
+/* Staafjes per categorie: één kleur, waarde ernaast. */
+.staven { display: grid; gap: 2px; }
+.staaf-rij { display: grid; grid-template-columns: minmax(90px, 36%) 1fr 3ch; align-items: center; gap: 10px; padding: 5px 6px; border-radius: 8px; font-size: 13.5px; outline: none; }
+.staaf-rij:hover, .staaf-rij:focus-visible { background: color-mix(in srgb, var(--tekst) 5%, transparent); }
+.staaf-label { overflow-wrap: anywhere; }
+.staaf-spoor { position: relative; height: 10px; }
+.staaf-spoor i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 0 4px 4px 0; }
+.staaf-waarde { font-variant-numeric: tabular-nums; color: var(--stil); text-align: right; }
+
+.meter { height: 6px; border-radius: 999px; background: color-mix(in srgb, var(--g1) 22%, transparent); overflow: hidden; }
+.meter i { display: block; height: 100%; border-radius: 999px; background: var(--g1); transition: width 0.6s var(--zacht); }
+.schema { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; font-size: 12px; }
+.s-voor, .s-op { color: var(--salie); }
+.s-achter { color: var(--sintel); }
+.verwacht-punt {
+  position: absolute; top: -10px; width: 0; height: 0; margin-left: -5px;
+  border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 7px solid var(--tekst);
+}
+
+/* ---- Overzicht ---- */
+
+.dash-kop { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 14px 24px; margin-bottom: 18px; }
+.dash-kop .hey { margin: 6px 0 4px; }
+.dash-acties { display: flex; flex-wrap: wrap; gap: 8px; }
+.dash-acties .knop { width: auto; }
+.knop.stil.gloed-rand { border-color: var(--goud); }
+
+.aandacht { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.punt-kaart {
+  display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: 14px; text-decoration: none;
+  border: 1px solid var(--lijn); background: var(--kaart); font-size: 14px; line-height: 1.4;
+}
+a.punt-kaart:hover { border-color: var(--lijn-sterk); }
+.punt-kaart .icoon { margin-top: 1px; }
+.n-actie { border-color: color-mix(in srgb, var(--rood) 55%, var(--lijn)); }
+.n-actie .icoon { color: var(--rood); }
+.n-let { border-color: color-mix(in srgb, var(--sintel) 45%, var(--lijn)); }
+.n-let .icoon { color: var(--sintel); }
+.n-info .icoon { color: var(--mist); }
+.n-goed .icoon { color: var(--salie); }
+
+.kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 12px; margin-bottom: 14px; }
+
+.dash-raster { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.dash-raster > .kaart { margin: 0; min-width: 0; }
+.blok-kop { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px 14px; flex-wrap: wrap; margin-bottom: 14px; }
+.blok-kop h2 { font-size: 22px; }
+.blok-kop .sub { margin-top: 2px; font-size: 13px; }
+.blok-kop .label { margin-bottom: 4px; }
+.blok-acties { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.blok-acties .legenda { margin-right: 6px; }
+.rond-knop.klein { width: 34px; height: 34px; }
+.rond-knop.klein svg { width: 18px; height: 18px; }
+.blok-sub { margin: 18px 0 8px; font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--goud); }
+
+.kalender-scroll { overflow-x: auto; margin: 0 -4px; padding: 0 4px 4px; }
+.kalender { min-width: 760px; display: grid; gap: 8px; }
+.kal-week { display: grid; grid-template-columns: 42px repeat(7, minmax(0, 1fr)); gap: 6px; }
+.kal-wk { padding-top: 9px; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--vaag); }
+.kal-dag {
+  min-height: 128px; padding: 8px; display: flex; flex-direction: column; gap: 6px;
+  border-radius: 12px; border: 1px solid var(--lijn); background: color-mix(in srgb, var(--veld) 55%, transparent);
+}
+.kal-dag.vandaag { border-color: var(--goud); box-shadow: inset 0 0 0 1px var(--goud); }
+.kal-dag.voorbij { opacity: 0.6; }
+.kal-datum { font-size: 11px; color: var(--stil); text-transform: uppercase; letter-spacing: 0.08em; }
+.kal-datum b { margin-left: 2px; font-family: var(--serif); font-size: 17px; font-weight: 400; letter-spacing: 0; color: var(--tekst); }
+.kal-post {
+  display: grid; gap: 3px; width: 100%; padding: 7px 8px; text-align: left; font-size: 12px; line-height: 1.3;
+  border-radius: 10px; border: 1px solid var(--lijn); background: var(--kaart); transition: border-color 0.2s ease;
+}
+.kal-post:hover { border-color: var(--lijn-sterk); }
+.kal-post.wacht { border-color: color-mix(in srgb, var(--sintel) 55%, var(--lijn)); }
+.kal-post-kop { display: flex; align-items: center; gap: 6px; }
+.kal-post-kop b { font-weight: 600; font-size: 12.5px; }
+.kal-post-idee { color: var(--stil); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.kal-post-status { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--vaag); }
+
+.lijstje { display: grid; }
+.lijst-rij { display: flex; align-items: flex-start; gap: 10px; width: 100%; padding: 9px 6px; text-align: left; border-radius: 10px; border-top: 1px solid var(--lijn); }
+.lijst-rij:first-child { border-top: 0; }
+.lijst-rij:hover { background: color-mix(in srgb, var(--tekst) 5%, transparent); }
+.lijst-rij .swatch { margin-top: 5px; }
+.lijst-tekst { flex: 1; min-width: 0; display: grid; gap: 2px; font-size: 13.5px; }
+.lijst-tekst b { font-weight: 600; }
+.lijst-tekst span { color: var(--stil); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.lijst-rij .cta { margin-left: 0; flex: none; }
+
+.teamrij { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--lijn); }
+.blok-kop + .teamrij { border-top: 0; padding-top: 2px; }
+.teamrij-midden { flex: 1; min-width: 0; display: grid; gap: 6px; }
+.teamrij-kop { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.teamrij-kop b { font-size: 15px; }
+.reeks { display: inline-flex; align-items: center; gap: 3px; font-weight: 600; font-size: 14px; color: var(--goud); }
+
+.doelrijen { display: grid; gap: 16px; }
+.doelrij-kop { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 14.5px; }
+.doelrij-waarde { font-weight: 600; }
+.doelrij .balk-groot { margin: 12px 0 6px; }
+.doelrij-voet { display: flex; justify-content: space-between; gap: 6px 10px; flex-wrap: wrap; font-size: 12px; color: var(--stil); }
+
+.momenten { list-style: none; display: grid; gap: 7px; }
+.momenten li { position: relative; padding-left: 16px; font-size: 14px; }
+.momenten li::before { content: ''; position: absolute; left: 0; top: 8px; width: 6px; height: 6px; border-radius: 50%; background: var(--goud); }
+.spelregels { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--lijn); }
+ol.regels.klein { margin-top: 10px; gap: 8px; }
+ol.regels.klein li { font-size: 13.5px; }
+.merken-regel { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 12px; font-size: 13px; color: var(--stil); }
+.merken-regel span { display: inline-flex; align-items: center; gap: 6px; }
+.merken-regel b { color: var(--tekst); }
+.blok .knop.klein { width: auto; }
+
+/* ---- Posts, doelen, plan en cijfers in een raster ---- */
+
+.postraster { display: grid; gap: 12px; }
+.postraster .kaart { margin: 0; }
+.doelen-raster { display: grid; gap: 12px; }
+.doelen-raster .kaart { margin: 0; }
+.doel .grafiek { margin-top: 16px; }
+.cijfers-raster { display: grid; gap: 12px; }
+.historie { margin: 0; }
+
+/* ---- Laptop en groot scherm: zijbalk in plaats van de balk onderin ---- */
+
+.zijbalk { display: none; }
+
+@media (min-width: 1024px) {
+  body.ingelogd .app { max-width: none; margin: 0 0 0 248px; padding: 30px 40px 64px; }
+  body.ingelogd .topbalk { display: none; }
+  .nav { display: none; }
+  .zijbalk:not([hidden]) {
+    position: fixed; z-index: 25; top: 0; bottom: 0; left: 0; width: 248px;
+    display: flex; flex-direction: column; gap: 18px; padding: 24px 14px 18px; overflow-y: auto;
+    background: color-mix(in srgb, var(--kaart) 62%, var(--bg)); border-right: 1px solid var(--lijn);
+  }
+  .zijbalk .woordmerk { padding: 2px 10px 4px; }
+  .zijbalk .demo-label { align-self: flex-start; margin: -10px 0 0 54px; }
+  .menu { display: grid; gap: 2px; }
+  .menu a {
+    display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px;
+    color: var(--stil); text-decoration: none; font-weight: 500; font-size: 15px; transition: background 0.2s ease, color 0.2s ease;
+  }
+  .menu a:hover { background: color-mix(in srgb, var(--tekst) 6%, transparent); color: var(--tekst); }
+  .menu a.aan { background: color-mix(in srgb, var(--goud) 16%, transparent); color: var(--tekst); }
+  .menu a.aan .icoon { color: var(--goud); }
+  .teller-bol {
+    margin-left: auto; min-width: 22px; height: 22px; padding: 0 7px; display: inline-grid; place-items: center;
+    border-radius: 999px; background: var(--knop); color: var(--op-knop); font-size: 12px; font-weight: 700;
+  }
+  .zij-onder { margin-top: auto; display: grid; gap: 12px; padding: 14px 6px 0; border-top: 1px solid var(--lijn); }
+  .zij-wie { display: flex; align-items: center; gap: 10px; }
+  .zij-wie b { display: block; font-size: 15px; }
+  .zij-thema, .zij-demo { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .zij-thema button, .zij-demo button { padding: 5px 10px; border-radius: 999px; border: 1px solid var(--lijn); font-size: 12px; color: var(--stil); }
+  .zij-thema button.aan, .zij-demo button.aan { background: var(--knop); color: var(--op-knop); border-color: var(--knop); }
+  .zij-demo .mini { width: 100%; }
+  .zijbalk .link-knop { display: inline-flex; align-items: center; gap: 8px; justify-self: start; }
+
+  .pagina { max-width: 1560px; }
+  .p-vandaag, .p-week, .p-maandag, .p-meer, .p-upload { max-width: 880px; }
+  .p-cijfers { max-width: 1400px; }
+  .chips.scroll { margin: 0; padding: 2px 0 4px; flex-wrap: wrap; }
+  .fab { right: 40px; bottom: 32px; }
+
+  .paneel {
+    left: auto; right: 0; top: 0; bottom: 0; width: min(580px, 100%); height: 100dvh; max-height: none;
+    transform: translateX(100%); border-radius: 24px 0 0 24px; border: 1px solid var(--lijn); border-right: 0; padding: 28px 28px 32px;
+  }
+  .paneel.open { transform: translateX(0); }
+  .greep { display: none; }
+
+  .dash-raster { grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; }
+  .b-3, .b-4, .b-5, .b-6, .b-7 { grid-column: span 6; }
+  .b-8, .b-12 { grid-column: 1 / -1; }
+  .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+  .postraster { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+  .doelen-raster { grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 16px; }
+  .cijfers-raster { grid-template-columns: minmax(360px, 1fr) minmax(0, 1.5fr); gap: 20px; align-items: start; }
+  .maanden { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; overflow: visible; margin: 0 0 16px; padding: 0; }
+  .maand { width: auto; max-width: none; }
+  .plan-onder { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: start; }
+  .plan-onder .kaart { margin: 0; }
+}
+
+@media (min-width: 1440px) {
+  .b-3 { grid-column: span 3; }
+  .b-4 { grid-column: span 4; }
+  .b-5 { grid-column: span 5; }
+  .b-6 { grid-column: span 6; }
+  .b-7 { grid-column: span 7; }
+  .b-8 { grid-column: span 8; }
+  .kpis { grid-template-columns: repeat(7, minmax(0, 1fr)); }
 }
