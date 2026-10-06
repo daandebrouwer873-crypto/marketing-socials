@@ -1,0 +1,1 @@
+window.APP_CONFIG = Object.freeze({"supabaseUrl":"https://xxgysjjnvnbwlnicmxnj.supabase.co","supabaseAnonKey":"sb_publishable_16SnuXoncWfvJnrhndJg9Q_5qzMMraa","demo":false,"driveUpload":false,"planUrl":"https://claude.ai/code/artifact/1be65a5c-2c62-46b0-8304-639b0465e888"});
