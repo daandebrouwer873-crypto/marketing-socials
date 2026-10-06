@@ -30,6 +30,7 @@ create or replace function public.marketing_mijn_email()
 returns text
 language sql
 stable
+set search_path = public
 as $$
   select lower(coalesce(nullif(auth.jwt() ->> 'email', ''), ''))
 $$;
@@ -87,6 +88,7 @@ create index if not exists marketing_weektaken_week_idx on public.marketing_week
 create or replace function public.marketing_weektaken_regels()
 returns trigger
 language plpgsql
+set search_path = public
 as $$
 declare
   bezet integer;
@@ -148,6 +150,7 @@ create index if not exists marketing_posts_datum_idx on public.marketing_posts (
 create or replace function public.marketing_posts_regels()
 returns trigger
 language plpgsql
+set search_path = public
 as $$
 declare
   was_goedgekeurd boolean := case when tg_op = 'UPDATE' then old.tekst_goedgekeurd else false end;
@@ -210,6 +213,7 @@ create table if not exists public.marketing_metingen (
 create or replace function public.marketing_metingen_bijwerken()
 returns trigger
 language plpgsql
+set search_path = public
 as $$
 begin
   new.ingevuld_door := public.marketing_mijn_email();
