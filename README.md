@@ -64,9 +64,14 @@ en "Brouwerij de Brouwer" maakt de app zelf aan in de BEELDBANK bij de eerste up
 
 ### 3. Netlify (de website)
 
-1. Kies op [netlify.com](https://app.netlify.com) **Add new site → Import an existing project**
-   en kies deze repository, branch `main`. De instellingen staan al in `netlify.toml`.
-2. Zet onder **Site configuration → Environment variables**:
+De site `pellens-marketing` staat al in het Netlify-team van Pellens, met `SUPABASE_URL`,
+`SUPABASE_PUBLISHABLE_KEY` en `PLAN_URL` ingevuld.
+
+1. Open [de site in Netlify](https://app.netlify.com/projects/pellens-marketing) en kies
+   **Project configuration → Build & deploy → Link repository**. Kies GitHub, deze repository
+   en branch `main`. De bouwinstellingen staan al in `netlify.toml`. Daarna zet Netlify elke
+   wijziging op `main` vanzelf online.
+2. De variabelen staan onder **Project configuration → Environment variables**:
 
    | Naam | Waarde |
    | --- | --- |
@@ -76,7 +81,7 @@ en "Brouwerij de Brouwer" maakt de app zelf aan in de BEELDBANK bij de eerste up
    | `GOOGLE_PRIVATE_KEY` | `private_key` uit hetzelfde bestand, inclusief `-----BEGIN` en `-----END` |
    | `PLAN_URL` | Optioneel: link naar het volledige marketingplan |
 
-3. Start een nieuwe deploy.
+   Na het toevoegen van de Google-variabelen: **Deploys → Trigger deploy**.
 
 ### 4. Op de telefoon
 
