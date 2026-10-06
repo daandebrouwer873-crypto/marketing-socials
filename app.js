@@ -2,7 +2,8 @@
 import {
   vandaag, plusDagen, maandagVan, weekdag, vorigeMaand, weekNummer, weekBereik, korteDatum, dagNaam, dagKort, maandNaam,
   begroeting, takenVoorWeek, vrijePlekken, routinesVoor, streak, postsTekstNodig, filterPosts,
-  laatsteMeting, reeks, voortgang, maandVanPlan, getal, voorletter, geledenTekst, esc, MAX_TAKEN,
+  laatsteMeting, reeks, voortgang, maandVanPlan, volgendeMaandVanPlan, getal, voorletter, geledenTekst, esc, MAX_TAKEN,
+  verschil, waardenPer, weken, maanden, telPer, opSchema,
 } from './lib/logica.js';
 import { KANALEN, THEMAS, MERKEN, POST_STATUS, MAANDEN, RITME, SPELREGELS, METRICS, ROLLEN, metric } from './lib/plan.js';
 import { ONDERWERPEN, onderwerp, driveMapUrl } from './lib/onderwerpen.js';
@@ -11,12 +12,18 @@ import { uploadNaarBeeldbank, mimeVan } from './lib/upload.js';
 import { dicterenKan, startDicteren, memoKan, startMemo } from './lib/spraak.js';
 import { confetti, confettiBij, tril, melding } from './lib/effecten.js';
 import { icoon, monogram } from './lib/iconen.js';
+import {
+  lijnGrafiek, tekenGrafieken, nieuweRender, statTegel, staafLijst, tipAttr, installeerGrafieken, verbergTip,
+} from './lib/grafiek.js';
 import { kiesThema, huidigThema, THEMAS as WEERGAVEN } from './thema.js';
 
 const config = window.APP_CONFIG || { demo: true };
 const opslag = maakOpslag(config);
 const app = document.getElementById('app');
 const nav = document.getElementById('nav');
+const zijbalk = document.getElementById('zijbalk');
+// Vanaf laptopbreedte: zijbalk en het overzicht als startpagina.
+const breed = window.matchMedia('(min-width: 1024px)');
 
 const S = {
   lid: null,
@@ -29,6 +36,7 @@ const S = {
   uploads: [],
   weekVerschuiving: 0,
   postsVerschuiving: 0,
+  kalenderVerschuiving: 0,
   postFilter: { status: 'alles', merk: 'alles' },
   cijferSoort: 'week',
   cijferVerschuiving: 0,
@@ -47,6 +55,9 @@ const nu = () => vandaag();
 const dezeMaandag = () => maandagVan(nu());
 const isEigenaar = () => S.lid && S.lid.rol === 'eigenaar';
 const isSocial = () => S.lid && S.lid.rol === 'social';
+const startPagina = () => (breed.matches ? 'overzicht' : 'vandaag');
+// S.checks bevat de vinkjes van het hele team; dit zijn die van jezelf.
+const mijnChecks = () => S.checks.filter(c => c.email === S.lid.email);
 
 function teamlid(email) {
   return S.team.find(l => l.email === email) || { email, naam: String(email || '?').split('@')[0], rol: '' };
@@ -88,10 +99,11 @@ function vonk(waarden) {
 // Gegevens
 
 async function laadAlles() {
-  const [team, taken, posts, checks, metingen, doelen, uploads] = await Promise.all([
-    opslag.team(), opslag.taken(), opslag.posts(), opslag.checks(S.lid.email),
+  const [team, taken, posts, teamChecks, eigenChecks, metingen, doelen, uploads] = await Promise.all([
+    opslag.team(), opslag.taken(), opslag.posts(), opslag.checks(), opslag.checks(S.lid.email),
     opslag.metingen(), opslag.doelen(), opslag.uploads(),
   ]);
+  const checks = [...new Map([...teamChecks, ...eigenChecks].map(c => [`${c.datum}|${c.routine}|${c.email}`, c])).values()];
   Object.assign(S, { team, taken, posts, checks, metingen, doelen, uploads, geladenOp: Date.now() });
 }
 
@@ -160,9 +172,10 @@ function viewVandaag() {
   const d = nu();
   const rol = S.lid.rol;
   const routines = routinesVoor(rol, d);
-  const gedaan = new Set(S.checks.filter(c => c.datum === d).map(c => c.routine));
+  const eigen = mijnChecks();
+  const gedaan = new Set(eigen.filter(c => c.datum === d).map(c => c.routine));
   const aantalGedaan = routines.filter(r => gedaan.has(r.key)).length;
-  const reeksDagen = streak(S.checks, rol, d);
+  const reeksDagen = streak(eigen, rol, d);
   const maand = maandVanPlan(d);
   const mijnTaken = takenVoorWeek(S.taken, dezeMaandag()).filter(t => t.eigenaar === S.lid.email && t.status === 'open');
 
@@ -341,7 +354,8 @@ function viewPosts() {
   const groepen = dagen.map(d => {
     const posts = gefilterd.filter(p => p.datum === d);
     if (!posts.length) return '';
-    return `<h3 class="dagkop">${dagNaam(d)} ${korteDatum(d).split(' ').slice(1).join(' ')}</h3>${posts.map(postKaart).join('')}`;
+    return `<section class="daggroep"><h3 class="dagkop">${dagNaam(d)} ${korteDatum(d).split(' ').slice(1).join(' ')}</h3>
+      <div class="postraster">${posts.map(postKaart).join('')}</div></section>`;
   }).join('');
 
   return `
@@ -546,6 +560,7 @@ function viewMeer() {
       <div><h2>${esc(S.lid.naam)}</h2><p class="sub">${esc(rol.label)} · ${esc(rol.taak)}</p></div>
     </div>
     <div class="tegels">
+      <a class="kaart klik" href="#overzicht"><span class="e">${icoon('raster', 26)}</span><div><b>Overzicht</b><p class="mini">Alles op één scherm</p></div></a>
       <a class="kaart klik" href="#doelen"><span class="e">${icoon('doel', 26)}</span><div><b>Doelen</b><p class="mini">Tot eind maart 2027</p></div></a>
       <a class="kaart klik" href="#cijfers"><span class="e">${icoon('grafiek', 26)}</span><div><b>Cijfers</b><p class="mini">Week en maand invullen</p></div></a>
       <a class="kaart klik" href="#maandag"><span class="e">${icoon('klok', 26)}</span><div><b>Maandagkwartier</b><p class="mini">15 minuten, 3 stappen</p></div></a>
@@ -565,13 +580,25 @@ function viewMeer() {
     <div class="knoppen een" style="margin-top:14px"><button class="knop stil" data-actie="uitloggen">Uitloggen</button></div>`;
 }
 
+function periodeLabel(periode, soort) {
+  return soort === 'week' ? `wk ${weekNummer(periode)}` : `${maandNaam(periode).slice(0, 3)} ${periode.slice(2, 4)}`;
+}
+
+function schemaLabel(schema) {
+  if (!schema) return '';
+  const teksten = { voor: 'voor op schema', op: 'op schema', achter: 'achter op schema' };
+  return `<span class="schema s-${schema.status}">${icoon(schema.status === 'achter' ? 'klok' : 'check', 14)} ${teksten[schema.status]}</span>`;
+}
+
 function viewDoelen() {
   const kaarten = S.doelen.map(doel => {
     const m = metric(doel.metric) || { decimalen: 0 };
     const laatst = laatsteMeting(S.metingen, doel.metric);
     const huidig = laatst ? Number(laatst.waarde) : null;
     const v = voortgang(doel, huidig);
+    const schema = opSchema(doel, huidig, nu());
     const geenDoel = doel.doel_maart == null;
+    const verloop = reeks(S.metingen, doel.metric, 12);
     return `<article class="kaart doel">
       <div class="kop"><h3>${esc(doel.label)}</h3>${isEigenaar() ? `<button class="link-knop" data-actie="doel-bewerk" data-metric="${esc(doel.metric)}">Aanpassen</button>` : ''}</div>
       <div class="waarde">${getal(huidig ?? doel.start_waarde, m.decimalen)} <small>${huidig == null ? 'start' : 'nu'}${geenDoel ? '' : ` · doel ${getal(doel.doel_maart, m.decimalen)}`}</small></div>
@@ -579,15 +606,22 @@ function viewDoelen() {
         <div class="balk-groot" role="img" aria-label="${Math.round(v.procent * 100)} procent van het doel">
           <i style="width:${Math.max(3, v.procent * 100)}%"></i>
           ${v.tussenstap != null ? `<span class="merkpunt" style="left:${v.tussenstap * 100}%" title="Tussendoel december"></span>` : ''}
+          ${schema ? `<span class="verwacht-punt" style="left:${Math.max(0, Math.min(1, schema.verwachtDeel)) * 100}%" title="Hier zou je nu volgens het plan staan"></span>` : ''}
         </div>
         <div class="doel-voet"><span>Start ${getal(doel.start_waarde, m.decimalen)}</span><span>Dec ${getal(doel.doel_december, m.decimalen)}</span><span>Mrt ${getal(doel.doel_maart, m.decimalen)}</span></div>
-        ${v.gehaald ? '<p class="mini" style="margin-top:8px;color:var(--salie)">Doel gehaald.</p>' : ''}`
+        <p class="mini" style="margin-top:8px">${v.gehaald ? '<span class="schema s-voor">Doel gehaald</span>' : schemaLabel(schema)}${schema ? ` · volgens plan nu ${getal(schema.verwacht, m.decimalen)}` : ''}</p>`
         : '<p class="mini" style="margin-top:10px">Nog geen meting. Vul de cijfers in om de voortgang te zien.</p>'}
+      ${verloop.length >= 2 ? lijnGrafiek({
+        titel: `Verloop ${doel.label}`,
+        labels: verloop.map(x => periodeLabel(x.periode_start, m.periode)),
+        reeksen: [{ naam: doel.label, kleur: 'g1', waarden: verloop.map(x => Number(x.waarde)) }],
+        decimalen: m.decimalen || 0, hoogte: 130, tabelKop: m.periode === 'week' ? 'Week' : 'Maand',
+      }) : ''}
     </article>`;
   }).join('');
   return `
-    <header class="paginakop"><a class="rond-knop" href="#meer" aria-label="Terug">${PIJL_LINKS}</a><div class="midden"><h1 class="titel">Doelen</h1><p class="sub">Tot eind maart 2027 · streepje = december</p></div></header>
-    ${kaarten || '<div class="kaart"><p class="leeg">Nog geen doelen ingesteld.</p></div>'}`;
+    <header class="paginakop"><a class="rond-knop" href="#meer" aria-label="Terug">${PIJL_LINKS}</a><div class="midden"><h1 class="titel">Doelen</h1><p class="sub">Tot eind maart 2027 · streep = december · driehoekje = waar je nu zou moeten staan</p></div></header>
+    ${kaarten ? `<div class="doelen-raster">${kaarten}</div>` : '<div class="kaart"><p class="leeg">Nog geen doelen ingesteld.</p></div>'}`;
 }
 
 function doelPaneel(doel) {
@@ -644,12 +678,29 @@ function viewCijfers() {
       <div class="midden" style="text-align:center"><h2>${esc(label)}</h2></div>
       <button class="rond-knop" data-actie="cijfer-verder" aria-label="Later" ${S.cijferVerschuiving >= 0 ? 'disabled' : ''}>${PIJL_RECHTS}</button>
     </div>
-    <form data-form="cijfers" data-periode="${start}" data-soort="${S.cijferSoort}" class="kaart">
-      ${metingVelden(S.cijferSoort, start)}
-      <p class="fout-tekst" data-fout></p>
-      <button class="knop" type="submit" style="margin-top:8px">Opslaan</button>
-    </form>
-    <p class="mini" style="text-align:center">Geen likes of views: die zeggen niets over gasten aan tafel.</p>`;
+    <div class="cijfers-raster">
+      <div>
+        <form data-form="cijfers" data-periode="${start}" data-soort="${S.cijferSoort}" class="kaart">
+          ${metingVelden(S.cijferSoort, start)}
+          <p class="fout-tekst" data-fout></p>
+          <button class="knop" type="submit" style="margin-top:8px">Opslaan</button>
+        </form>
+        <p class="mini" style="text-align:center">Geen likes of views: die zeggen niets over gasten aan tafel.</p>
+      </div>
+      ${cijferHistorie(S.cijferSoort)}
+    </div>`;
+}
+
+function cijferHistorie(soort) {
+  const perioden = soort === 'week' ? weken(plusDagen(dezeMaandag(), -7), 8) : maanden(vorigeMaand(nu()), 6);
+  const lijst = METRICS.filter(m => m.periode === soort);
+  return `<section class="kaart historie">
+    <div class="kop"><h2>${soort === 'week' ? 'Laatste acht weken' : 'Laatste zes maanden'}</h2></div>
+    <div class="tabel-scroll"><table class="cijfertabel">
+      <thead><tr><th>Cijfer</th>${perioden.map(p => `<th>${esc(periodeLabel(p, soort))}</th>`).join('')}</tr></thead>
+      <tbody>${lijst.map(m => `<tr><th>${esc(m.label)}</th>${waardenPer(S.metingen, m.key, perioden).map(v => `<td>${esc(getal(v, m.decimalen || 0))}</td>`).join('')}</tr>`).join('')}</tbody>
+    </table></div>
+  </section>`;
 }
 
 function viewMaandag() {
@@ -714,10 +765,386 @@ function viewPlan() {
         <ul>${m.momenten.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
       </article>`).join('')}
     </div>
-    <section class="kaart"><h2 style="margin-bottom:12px">Spelregels</h2><ol class="regels">${SPELREGELS.map(r => `<li>${esc(r)}</li>`).join('')}</ol></section>
-    <section class="kaart"><h2 style="margin-bottom:8px">Het ritme</h2>${RITME.map(r => `<div class="ritme-rij"><b>${esc(r.wanneer)}</b><span>${esc(r.wat)} <span class="vaag">· ${esc(r.wie)}</span></span></div>`).join('')}</section>
-    <section class="kaart"><h2 style="margin-bottom:8px">Vijf thema's</h2>${Object.values(THEMAS).map(t => `<div class="ritme-rij"><b>${esc(t.label)}</b><span>${esc(t.uitleg)}</span></div>`).join('')}</section>
+    <div class="plan-onder">
+      <section class="kaart"><h2 style="margin-bottom:12px">Spelregels</h2><ol class="regels">${SPELREGELS.map(r => `<li>${esc(r)}</li>`).join('')}</ol></section>
+      <section class="kaart"><h2 style="margin-bottom:8px">Het ritme</h2>${RITME.map(r => `<div class="ritme-rij"><b>${esc(r.wanneer)}</b><span>${esc(r.wat)} <span class="vaag">· ${esc(r.wie)}</span></span></div>`).join('')}</section>
+      <section class="kaart"><h2 style="margin-bottom:8px">Vijf thema's</h2>${Object.values(THEMAS).map(t => `<div class="ritme-rij"><b>${esc(t.label)}</b><span>${esc(t.uitleg)}</span></div>`).join('')}</section>
+    </div>
     ${config.planUrl ? `<a class="knop stil" href="${esc(config.planUrl)}" target="_blank" rel="noopener">Volledig plan openen</a>` : ''}`;
+}
+
+// ---------------------------------------------------------------------------
+// Overzicht: alles op één scherm, voor de laptop en het grote scherm.
+
+const MERK_KLEUR = { pellens: 'g1', brouwerij: 'g2' };
+const STATUS_ICOON = { idee: 'kiem', tekst_nodig: 'mic', tekst_klaar: 'check', ingepland: 'kalender', geplaatst: 'check' };
+const weekLabel = maandag => `wk ${weekNummer(maandag)}`;
+
+function swatch(merk) {
+  return `<i class="swatch" style="background:var(--${MERK_KLEUR[merk] || 'g1'})" aria-hidden="true"></i>`;
+}
+
+function aandachtPunten() {
+  const d = nu();
+  const punten = [];
+  const tekst = postsTekstNodig(S.posts.filter(p => p.datum >= plusDagen(d, -7)));
+  if (tekst.length) {
+    const snel = tekst.filter(p => p.datum <= plusDagen(d, 3)).length;
+    punten.push({
+      niveau: snel ? 'actie' : 'let', icoon: 'mic', href: '#posts/tekst',
+      tekst: `${tekst.length} ${tekst.length === 1 ? 'post wacht' : 'posts wachten'} op tekst van Daan${snel ? `, waarvan ${snel} binnen drie dagen` : ''}`,
+    });
+  }
+  const nietIngepland = S.posts.filter(p => p.status === 'tekst_klaar' && p.datum >= d && p.datum <= plusDagen(d, 2));
+  if (nietIngepland.length) {
+    punten.push({ niveau: 'let', icoon: 'kalender', href: '#posts', tekst: `${nietIngepland.length} ${nietIngepland.length === 1 ? 'post heeft' : 'posts hebben'} een tekst maar ${nietIngepland.length === 1 ? 'staat' : 'staan'} nog niet ingepland` });
+  }
+  const vorigeMa = plusDagen(dezeMaandag(), -7);
+  const weekCijfers = METRICS.filter(m => m.periode === 'week');
+  const ingevuld = weekCijfers.filter(m => S.metingen.some(x => x.metric === m.key && x.periode_start === vorigeMa)).length;
+  if (ingevuld < weekCijfers.length) {
+    punten.push({ niveau: ingevuld ? 'let' : 'actie', icoon: 'grafiek', href: '#cijfers', tekst: `Cijfers van week ${weekNummer(vorigeMa)}: ${ingevuld} van ${weekCijfers.length} ingevuld` });
+  }
+  const taken = takenVoorWeek(S.taken, dezeMaandag());
+  const door = taken.filter(t => t.doorgeschoven && t.status === 'open').length;
+  if (door) punten.push({ niveau: 'let', icoon: 'klok', href: '#week', tekst: `${door} ${door === 1 ? 'taak is' : 'taken zijn'} doorgeschoven van vorige week` });
+  if (!taken.length) punten.push({ niveau: 'let', icoon: 'check', href: '#week', tekst: 'Nog geen weektaken gekozen voor deze week' });
+  const venster = S.posts.filter(p => p.datum >= plusDagen(d, -28) && p.datum <= plusDagen(d, 14));
+  const boeken = venster.filter(p => p.thema === 'boeken').length;
+  if (venster.length >= 5 && boeken / venster.length > 0.2) {
+    punten.push({ niveau: 'let', icoon: 'let', href: '#posts', tekst: `${boeken} van de ${venster.length} posts zijn boeken-posts. Het plan zegt hooguit één op vijf` });
+  }
+  const nieuw = S.uploads.filter(u => u.onderwerp === 'nieuw' && u.created_at >= plusDagen(d, -14)).length;
+  if (nieuw) punten.push({ niveau: 'info', icoon: 'beeld', href: '#upload', tekst: `${nieuw} ${nieuw === 1 ? 'bestand' : 'bestanden'} in de beeldbank om te sorteren` });
+  return punten;
+}
+
+function kpiTegels() {
+  const wk = weken(plusDagen(dezeMaandag(), -7), 10);
+  const tegel = (key, label) => {
+    const m = metric(key) || {};
+    const v = verschil(S.metingen, key);
+    const doel = S.doelen.find(x => x.metric === key);
+    const perWeek = m.periode === 'week';
+    return statTegel({
+      label,
+      waarde: v.huidig,
+      decimalen: m.decimalen || 0,
+      delta: v.delta,
+      deltaTekst: perWeek ? 't.o.v. week ervoor' : 't.o.v. maand ervoor',
+      reeks: perWeek ? waardenPer(S.metingen, key, wk) : reeks(S.metingen, key, 8).map(x => Number(x.waarde)),
+      voet: doel && doel.doel_maart != null ? `doel maart ${getal(doel.doel_maart, m.decimalen || 0)}` : v.periode ? periodeLabel(v.periode, m.periode) : 'nog niet gemeten',
+      href: '#doelen',
+    });
+  };
+  const maandag = dezeMaandag();
+  const dezeWeek = S.posts.filter(p => p.datum >= maandag && p.datum <= plusDagen(maandag, 6));
+  const perWeek = weken(maandag, 8).map(w => S.posts.filter(p => p.datum >= w && p.datum <= plusDagen(w, 6)).length);
+  return [
+    statTegel({
+      label: 'Posts deze week', waarde: dezeWeek.length, reeks: perWeek, href: '#posts',
+      voet: `${dezeWeek.filter(p => p.status === 'geplaatst').length} geplaatst · ${dezeWeek.filter(p => p.tekst_goedgekeurd).length} met tekst`,
+    }),
+    tegel('gasten_diner', 'Gasten per diner'),
+    tegel('gasten_lunch', 'Gasten per lunch'),
+    tegel('ig_volgers_pellens', 'Instagram Pellens'),
+    tegel('ig_volgers_brouwerij', 'Instagram Brouwerij'),
+    tegel('google_reviews', 'Google-reviews'),
+    tegel('emailadressen', 'E-mailadressen'),
+  ].join('');
+}
+
+function kalPost(p) {
+  const kanaal = KANALEN[p.kanaal] || { label: p.kanaal };
+  const status = POST_STATUS[p.status] || POST_STATUS.idee;
+  const merk = MERKEN[p.merk] || MERKEN.pellens;
+  const wacht = postsTekstNodig([p]).length > 0;
+  return `<button class="kal-post${wacht ? ' wacht' : ''}" data-actie="post-open" data-id="${esc(p.id)}"
+      ${tipAttr(`${kanaal.label} · ${merk.label}`, [{ naam: 'status', waarde: status.label }, { naam: '', waarde: String(p.idee).slice(0, 140) }])}>
+    <span class="kal-post-kop">${swatch(p.merk)}<b>${esc(kanaal.label)}</b></span>
+    <span class="kal-post-idee">${esc(p.idee)}</span>
+    <span class="kal-post-status">${icoon(STATUS_ICOON[p.status] || 'kiem', 13)} ${esc(status.label)}</span>
+  </button>`;
+}
+
+function kalender(start) {
+  const d = nu();
+  return `<div class="kalender-scroll"><div class="kalender">
+    ${[0, 1].map(w => {
+      const maandag = plusDagen(start, 7 * w);
+      return `<div class="kal-week"><div class="kal-wk">${weekLabel(maandag)}</div>
+        ${Array.from({ length: 7 }, (_, i) => plusDagen(maandag, i)).map(dag => {
+          const posts = S.posts.filter(p => p.datum === dag);
+          return `<div class="kal-dag${dag === d ? ' vandaag' : ''}${dag < d ? ' voorbij' : ''}">
+            <span class="kal-datum">${dagKort(dag)} <b>${Number(dag.slice(8))}</b></span>
+            ${posts.map(kalPost).join('')}
+          </div>`;
+        }).join('')}
+      </div>`;
+    }).join('')}
+  </div></div>`;
+}
+
+function teamVandaag() {
+  const d = nu();
+  return S.team.map(lid => {
+    const routines = routinesVoor(lid.rol, d);
+    const eigen = S.checks.filter(c => c.email === lid.email);
+    const gedaan = new Set(eigen.filter(c => c.datum === d).map(c => c.routine));
+    const af = routines.filter(r => gedaan.has(r.key)).length;
+    const open = routines.filter(r => !gedaan.has(r.key));
+    const reeksDagen = streak(eigen, lid.rol, d);
+    let nodig = 0;
+    let klaar = 0;
+    for (let n = 7; n >= 1; n -= 1) {
+      const dag = plusDagen(d, -n);
+      const dagGedaan = new Set(eigen.filter(c => c.datum === dag).map(c => c.routine));
+      const dagRoutines = routinesVoor(lid.rol, dag);
+      nodig += dagRoutines.length;
+      klaar += dagRoutines.filter(r => dagGedaan.has(r.key)).length;
+    }
+    return `<div class="teamrij">
+      ${avatar(lid)}
+      <div class="teamrij-midden">
+        <div class="teamrij-kop"><b>${esc(lid.naam)}</b><span class="mini">${esc((ROLLEN[lid.rol] || { label: '' }).label)}</span></div>
+        ${routines.length ? `
+          <div class="meter" role="img" aria-label="${af} van ${routines.length} vaste taken af"><i style="width:${(af / routines.length) * 100}%"></i></div>
+          <p class="mini">${af === routines.length ? 'Alles af vandaag' : `${af} van ${routines.length} af · nog: ${esc(open.slice(0, 2).map(r => r.label.toLowerCase()).join(', '))}${open.length > 2 ? ` en ${open.length - 2} meer` : ''}`}</p>`
+        : '<p class="mini">Vandaag geen vaste taken</p>'}
+        ${nodig ? `<p class="mini vaag">Afgelopen 7 dagen: ${klaar} van ${nodig} af (${Math.round((klaar / nodig) * 100)}%)</p>` : ''}
+      </div>
+      <span class="reeks" title="Dagen op rij alles af" aria-label="${reeksDagen} dagen op rij alles af">${icoon('vlam', 15)}${reeksDagen}</span>
+    </div>`;
+  }).join('');
+}
+
+function doelRij(doel) {
+  const m = metric(doel.metric) || { decimalen: 0 };
+  const laatst = laatsteMeting(S.metingen, doel.metric);
+  const huidig = laatst ? Number(laatst.waarde) : null;
+  const v = voortgang(doel, huidig);
+  const schema = opSchema(doel, huidig, nu());
+  const dec = m.decimalen || 0;
+  return `<div class="doelrij">
+    <div class="doelrij-kop"><b>${esc(doel.label)}</b><span class="doelrij-waarde">${esc(getal(huidig ?? doel.start_waarde, dec))}</span></div>
+    ${v ? `
+      <div class="balk-groot" role="img" aria-label="${Math.round(v.procent * 100)} procent van het doel van maart">
+        <i style="width:${Math.max(2, v.procent * 100)}%"></i>
+        ${v.tussenstap != null ? `<span class="merkpunt" style="left:${v.tussenstap * 100}%"></span>` : ''}
+        ${schema ? `<span class="verwacht-punt" style="left:${Math.max(0, Math.min(1, schema.verwachtDeel)) * 100}%"></span>` : ''}
+      </div>
+      <div class="doelrij-voet"><span>start ${esc(getal(doel.start_waarde, dec))} · dec ${esc(getal(doel.doel_december, dec))} · mrt ${esc(getal(doel.doel_maart, dec))}</span>${v.gehaald ? '<span class="schema s-voor">doel gehaald</span>' : schemaLabel(schema)}</div>`
+    : `<p class="mini">${doel.doel_maart == null ? 'Doel volgt na de nulmeting.' : 'Nog geen meting ingevuld.'}</p>`}
+  </div>`;
+}
+
+function reserveringenBlok() {
+  const bronnen = [['res_instagram', 'Instagram'], ['res_google', 'Google'], ['res_website', 'Website'], ['res_telefoon', 'Telefoon']];
+  const perioden = S.metingen.filter(m => m.metric.startsWith('res_')).map(m => m.periode_start).sort();
+  const profiel = [['gbp_weergaven', 'Weergaven'], ['gbp_route', 'Routeverzoeken'], ['gbp_bellen', 'Belklikken'], ['gbp_website', 'Websiteklikken'], ['ig_linkklikken', 'Link in bio (Instagram)']];
+  const profielMaand = S.metingen.filter(m => m.metric.startsWith('gbp_')).map(m => m.periode_start).sort().at(-1);
+  let res = '<p class="leeg">Nog geen reserveringen per bron ingevuld.</p>';
+  if (perioden.length) {
+    const maand = perioden.at(-1);
+    const rijen = bronnen.map(([k, label]) => ({ label, waarde: waardenPer(S.metingen, k, [maand])[0] }));
+    const totaal = rijen.reduce((s, r) => s + (r.waarde || 0), 0);
+    const online = (rijen[0].waarde || 0) + (rijen[1].waarde || 0);
+    res = `<p class="mini" style="margin-bottom:10px">${esc(maandNaam(maand))} · ${esc(getal(totaal))} reserveringen, ${totaal ? Math.round((online / totaal) * 100) : 0}% via Instagram en Google</p>
+      ${staafLijst({ rijen, naam: 'reserveringen' })}`;
+  }
+  let tabel = '';
+  if (profielMaand) {
+    const ervoor = vorigeMaand(profielMaand);
+    tabel = `<h3 class="blok-sub">Google-profiel en Instagram</h3>
+      <table class="cijfertabel compact"><thead><tr><th></th><th>${esc(maandNaam(ervoor).slice(0, 3))}</th><th>${esc(maandNaam(profielMaand).slice(0, 3))}</th><th>verschil</th></tr></thead>
+      <tbody>${profiel.map(([k, label]) => {
+        const [a, b] = waardenPer(S.metingen, k, [ervoor, profielMaand]);
+        const delta = a != null && b != null ? b - a : null;
+        return `<tr><th>${esc(label)}</th><td>${esc(getal(a))}</td><td>${esc(getal(b))}</td>
+          <td class="${delta == null || delta === 0 ? '' : delta > 0 ? 'goed' : 'slecht'}">${delta == null ? '–' : `${delta > 0 ? '+' : ''}${esc(getal(delta))}`}</td></tr>`;
+      }).join('')}</tbody></table>`;
+  }
+  return `${res}${tabel}`;
+}
+
+function viewOverzicht() {
+  const d = nu();
+  const maand = maandVanPlan(d);
+  const volgende = volgendeMaandVanPlan(d);
+  const start = plusDagen(dezeMaandag(), 7 * S.kalenderVerschuiving);
+  const inVenster = S.posts.filter(p => p.datum >= start && p.datum <= plusDagen(start, 13));
+  const perStatus = telPer(inVenster, 'status');
+  const wachten = postsTekstNodig(S.posts.filter(p => p.datum >= plusDagen(d, -7)));
+  const taken = takenVoorWeek(S.taken, dezeMaandag());
+  const plekken = vrijePlekken(S.taken, dezeMaandag());
+  const punten = aandachtPunten();
+  const wk = weken(plusDagen(dezeMaandag(), -7), 12);
+  const themaVenster = S.posts.filter(p => p.datum >= plusDagen(d, -28) && p.datum <= plusDagen(d, 14));
+  const perThema = telPer(themaVenster, 'thema');
+  const perKanaal = telPer(themaVenster, 'kanaal');
+  const perMerk = telPer(themaVenster, 'merk');
+  const boeken = perThema.boeken || 0;
+  const brouwerijVolgers = waardenPer(S.metingen, 'ig_volgers_brouwerij', wk);
+  const recent = S.uploads.slice(0, 5);
+  const dezeWeekGeupload = S.uploads.filter(u => u.created_at >= plusDagen(d, -7)).length;
+
+  return `
+    <header class="dash-kop">
+      <div>
+        <p class="dagregel">${dagNaam(d)} ${korteDatum(d).split(' ').slice(1).join(' ')} · week ${weekNummer(d)}</p>
+        <h1 class="hey">${begroeting()}, <em>${esc(S.lid.naam)}</em></h1>
+        <p class="sub">${esc(maand.naam)}: ${esc(maand.thema.toLowerCase())}</p>
+      </div>
+      <div class="dash-acties">
+        ${S.lid.rol !== 'manager' ? `<button class="knop klein" data-actie="post-nieuw">${icoon('plus', 16)} Post</button>` : ''}
+        <button class="knop klein stil" data-actie="taak-nieuw" data-week="${dezeMaandag()}" ${plekken ? '' : 'disabled'}>${icoon('plus', 16)} Taak</button>
+        <a class="knop klein stil" href="#upload">${icoon('uploaden', 16)} Uploaden</a>
+        <a class="knop klein stil${weekdag(d) === 1 ? ' gloed-rand' : ''}" href="#maandag">${icoon('klok', 16)} Maandagkwartier</a>
+      </div>
+    </header>
+
+    <section class="aandacht" aria-label="Aandachtspunten">
+      ${punten.length ? punten.map(p => `<a class="punt-kaart n-${p.niveau}" href="${p.href}">${icoon(p.icoon, 18)}<span>${esc(p.tekst)}</span></a>`).join('')
+        : `<div class="punt-kaart n-goed">${icoon('check', 18)}<span>Alles loopt volgens plan. Niets dat nu aandacht vraagt.</span></div>`}
+    </section>
+
+    <section class="kpis" aria-label="Cijfers">${kpiTegels()}</section>
+
+    <div class="dash-raster">
+      <section class="kaart blok b-12">
+        <div class="blok-kop">
+          <div><h2>Contentkalender</h2><p class="sub">${weekLabel(start)} en ${weekLabel(plusDagen(start, 7))} · ${korteDatum(start).split(' ').slice(1).join(' ')} tot ${korteDatum(plusDagen(start, 13)).split(' ').slice(1).join(' ')}</p></div>
+          <div class="blok-acties">
+            <span class="legenda"><span>${swatch('pellens')}Pellens</span><span>${swatch('brouwerij')}Brouwerij</span></span>
+            <button class="rond-knop klein" data-actie="kal-terug" aria-label="Eerdere weken">${PIJL_LINKS}</button>
+            ${S.kalenderVerschuiving ? '<button class="link-knop" data-actie="kal-nu">Nu</button>' : ''}
+            <button class="rond-knop klein" data-actie="kal-verder" aria-label="Latere weken">${PIJL_RECHTS}</button>
+          </div>
+        </div>
+        ${kalender(start)}
+      </section>
+
+      <section class="kaart blok b-4">
+        <div class="blok-kop"><div><h2>Pijplijn</h2><p class="sub">Posts in deze twee weken, per stap</p></div></div>
+        ${staafLijst({ rijen: Object.entries(POST_STATUS).map(([k, s]) => ({ label: s.label, waarde: perStatus[k] || 0 })), naam: 'posts' })}
+        <h3 class="blok-sub">Wacht op tekst van Daan</h3>
+        ${wachten.length ? `<div class="lijstje">${wachten.slice(0, 6).map(p => `<button class="lijst-rij" data-actie="post-open" data-id="${esc(p.id)}">
+            ${swatch(p.merk)}<span class="lijst-tekst"><b>${esc(korteDatum(p.datum))} · ${esc((KANALEN[p.kanaal] || { label: p.kanaal }).label)}</b><span>${esc(p.idee)}</span></span>
+            ${isEigenaar() ? `<span class="cta">${icoon('mic', 13)} Inspreken</span>` : ''}
+          </button>`).join('')}</div>${wachten.length > 6 ? `<a class="link-knop" href="#posts/tekst">Alle ${wachten.length} bekijken</a>` : ''}`
+          : '<p class="leeg">Alle teksten zijn binnen.</p>'}
+      </section>
+
+      <section class="kaart blok b-4">
+        <div class="blok-kop"><div><h2>Team vandaag</h2><p class="sub">Vaste taken uit het plan en dagen op rij</p></div></div>
+        ${teamVandaag()}
+      </section>
+
+      <section class="kaart blok b-4">
+        <div class="blok-kop"><div><h2>Weektaken</h2><p class="sub">Week ${weekNummer(d)} · ${taken.filter(t => t.status === 'af').length} van ${taken.length || MAX_TAKEN} af</p></div>
+          <a class="link-knop" href="#week">Week</a></div>
+        ${taken.length ? taken.map(taakRij).join('') : '<p class="leeg">Nog geen taken. Kies er maximaal drie die echt het verschil maken.</p>'}
+        ${plekken ? `<button class="knop klein stil" data-actie="taak-nieuw" data-week="${dezeMaandag()}" style="margin-top:10px">${icoon('plus', 15)} Taak toevoegen (${plekken} vrij)</button>` : ''}
+      </section>
+
+      <section class="kaart blok b-6">
+        <div class="blok-kop"><div><h2>Gasten per dienst</h2><p class="sub">Gemiddeld per week · doel maart: diner 35, lunch 27</p></div></div>
+        ${lijnGrafiek({
+          titel: 'Gasten per dienst per week', labels: wk.map(weekLabel), tabelKop: 'Week', decimalen: 1, hoogte: 250,
+          reeksen: [
+            { naam: 'Diner', kleur: 'g1', waarden: waardenPer(S.metingen, 'gasten_diner', wk) },
+            { naam: 'Lunch', kleur: 'g2', waarden: waardenPer(S.metingen, 'gasten_lunch', wk) },
+          ],
+        })}
+      </section>
+
+      <section class="kaart blok b-6">
+        <div class="blok-kop"><div><h2>Instagram-volgers</h2><p class="sub">Pellens per week · doel december 4.800, maart 6.000</p></div></div>
+        ${lijnGrafiek({
+          titel: 'Instagram-volgers Pellens per week', labels: wk.map(weekLabel), tabelKop: 'Week', hoogte: 170,
+          reeksen: [{ naam: 'Pellens', kleur: 'g1', waarden: waardenPer(S.metingen, 'ig_volgers_pellens', wk) }],
+        })}
+        ${brouwerijVolgers.filter(v => v != null).length >= 2 ? `<h3 class="blok-sub">Brouwerij de Brouwer</h3>${lijnGrafiek({
+          titel: 'Instagram-volgers Brouwerij per week', labels: wk.map(weekLabel), tabelKop: 'Week', hoogte: 120,
+          reeksen: [{ naam: 'Brouwerij', kleur: 'g2', waarden: brouwerijVolgers }],
+        })}` : ''}
+      </section>
+
+      <section class="kaart blok b-7">
+        <div class="blok-kop"><div><h2>Doelen tot eind maart</h2><p class="sub">Streep = doel december · driehoekje = waar je nu volgens plan zou staan</p></div><a class="link-knop" href="#doelen">Doelen</a></div>
+        <div class="doelrijen">${S.doelen.map(doelRij).join('') || '<p class="leeg">Nog geen doelen ingesteld.</p>'}</div>
+      </section>
+
+      <section class="kaart blok b-5">
+        <div class="blok-kop"><div><h2>Waar gasten vandaan komen</h2><p class="sub">Reserveringen per bron, laatste maand</p></div><a class="link-knop" href="#cijfers">Cijfers</a></div>
+        ${reserveringenBlok()}
+      </section>
+
+      <section class="kaart blok b-3">
+        <div class="blok-kop"><div><p class="label">Het plan nu</p><h2>${esc(maand.naam)}, <em>${esc(maand.thema.toLowerCase())}</em></h2></div><a class="link-knop" href="#plan">Plan</a></div>
+        <ul class="momenten">${maand.momenten.map(m => `<li>${esc(m)}</li>`).join('')}</ul>
+        ${volgende ? `<p class="mini" style="margin-top:12px">Volgende maand: <b>${esc(volgende.naam)}</b>, ${esc(volgende.thema.toLowerCase())}</p>` : ''}
+        <details class="spelregels"><summary>Spelregels</summary><ol class="regels klein">${SPELREGELS.map(r => `<li>${esc(r)}</li>`).join('')}</ol></details>
+      </section>
+
+      <section class="kaart blok b-3">
+        <div class="blok-kop"><div><h2>Thema's</h2><p class="sub">Posts van vier weken terug tot twee weken vooruit</p></div></div>
+        ${staafLijst({ rijen: Object.entries(THEMAS).map(([k, t]) => ({ label: t.label, waarde: perThema[k] || 0 })), naam: 'posts' })}
+        <p class="mini" style="margin-top:10px">${boeken > themaVenster.length / 5 ? `<span class="schema s-achter">${icoon('let', 14)} te veel boeken-posts</span>` : `<span class="schema s-op">${icoon('check', 14)} boeken binnen de regel</span>`} · ${boeken} van ${themaVenster.length}, hooguit één op vijf</p>
+      </section>
+
+      <section class="kaart blok b-3">
+        <div class="blok-kop"><div><h2>Kanalen en merken</h2><p class="sub">Zelfde periode</p></div></div>
+        ${staafLijst({ rijen: Object.entries(KANALEN).filter(([k]) => perKanaal[k]).sort((a, b) => perKanaal[b[0]] - perKanaal[a[0]]).map(([k, kanaal]) => ({ label: kanaal.label, waarde: perKanaal[k] })), naam: 'posts' })}
+        <p class="merken-regel">${Object.entries(MERKEN).map(([k, m]) => `<span>${swatch(k)}${esc(m.kort)} <b>${perMerk[k] || 0}</b></span>`).join('')}</p>
+      </section>
+
+      <section class="kaart blok b-3">
+        <div class="blok-kop"><div><h2>Beeldbank</h2><p class="sub">${dezeWeekGeupload} ${dezeWeekGeupload === 1 ? 'bestand' : 'bestanden'} in de afgelopen week</p></div>
+          <a class="link-knop" href="${esc(driveMapUrl('nieuw'))}" target="_blank" rel="noopener">Open Drive</a></div>
+        ${recent.length ? recent.map(r => {
+          const o = onderwerp(r.onderwerp) || { label: r.onderwerp };
+          return `<div class="bestand"><span class="e">${icoon(/^video/.test(r.mime || '') ? 'geluid' : 'beeld')}</span>
+            <div><div class="naam">${esc(kortNaam(r.naam))}</div><div class="mini">${esc(teamlid(r.email).naam)} · ${esc(o.label)} · ${geledenTekst(r.created_at)}</div></div></div>`;
+        }).join('') : '<p class="leeg">Nog niets geüpload.</p>'}
+        <a class="knop klein stil" href="#upload" style="margin-top:10px">${icoon('uploaden', 15)} Uploaden</a>
+      </section>
+    </div>`;
+}
+
+// ---------------------------------------------------------------------------
+// Zijbalk op laptop en groot scherm
+
+const MENU = [
+  ['overzicht', 'Overzicht', 'raster'],
+  ['vandaag', 'Vandaag', 'vlam'],
+  ['week', 'Weektaken', 'check'],
+  ['posts', 'Posts', 'kalender'],
+  ['upload', 'Beeldbank', 'beeld'],
+  ['doelen', 'Doelen', 'doel'],
+  ['cijfers', 'Cijfers', 'grafiek'],
+  ['maandag', 'Maandagkwartier', 'klok'],
+  ['plan', 'Het plan', 'kaart'],
+];
+
+function zijbalkHtml(pagina) {
+  const wachten = postsTekstNodig(S.posts.filter(p => p.datum >= plusDagen(nu(), -7))).length;
+  const rol = ROLLEN[S.lid.rol] || { label: S.lid.rol };
+  return `
+    <a class="woordmerk" href="#overzicht" aria-label="Pellens marketing, naar het overzicht">${monogram(34)}<span><span class="naam">Pellens</span><span class="onder">marketing</span></span></a>
+    ${opslag.demo ? '<span class="demo-label">demo</span>' : ''}
+    <nav class="menu" aria-label="Hoofdmenu">
+      ${MENU.map(([k, label, i]) => `<a href="#${k}" class="${k === pagina ? 'aan' : ''}" ${k === pagina ? 'aria-current="page"' : ''}>
+        ${icoon(i, 18)}<span>${label}</span>${k === 'posts' && wachten ? `<span class="teller-bol" title="Wachten op tekst">${wachten}</span>` : ''}</a>`).join('')}
+    </nav>
+    <div class="zij-onder">
+      <div class="zij-wie">${avatar(S.lid)}<div><b>${esc(S.lid.naam)}</b><span class="mini">${esc(rol.label)}</span></div></div>
+      <div class="zij-thema" role="group" aria-label="Weergave">
+        ${Object.entries(WEERGAVEN).map(([k, naam]) => `<button class="${huidigThema() === k ? 'aan' : ''}" data-actie="thema" data-thema="${k}" aria-pressed="${huidigThema() === k}">${naam}</button>`).join('')}
+      </div>
+      ${opslag.demo ? `<div class="zij-demo"><span class="mini">Bekijk als</span>${DEMO_TEAM.map(l => `<button class="${l.email === S.lid.email ? 'aan' : ''}" data-actie="demo-als" data-email="${l.email}">${esc(l.naam)}</button>`).join('')}</div>` : ''}
+      <button class="link-knop" data-actie="uitloggen">${icoon('uit', 15)} Uitloggen</button>
+    </div>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -725,6 +1152,8 @@ function viewPlan() {
 
 function viewLogin(fout = '') {
   nav.hidden = true;
+  zijbalk.hidden = true;
+  document.body.classList.remove('ingelogd');
   app.innerHTML = `<section class="login binnen">
     ${monogram(84)}
     <div class="login-merk">Pellens<br><em>marketing</em></div>
@@ -751,26 +1180,32 @@ function loginFormulier(fout = '') {
 // Render en routes
 
 const PAGINAS = {
-  vandaag: viewVandaag, week: viewWeek, posts: viewPosts, upload: viewUpload, meer: viewMeer,
+  overzicht: viewOverzicht, vandaag: viewVandaag, week: viewWeek, posts: viewPosts, upload: viewUpload, meer: viewMeer,
   doelen: viewDoelen, cijfers: viewCijfers, maandag: viewMaandag, plan: viewPlan,
 };
-const ONDER_MEER = new Set(['meer', 'doelen', 'cijfers', 'maandag', 'plan']);
+const ONDER_MEER = new Set(['meer', 'overzicht', 'doelen', 'cijfers', 'maandag', 'plan']);
 
 function route() {
   const [pagina, arg] = location.hash.replace(/^#/, '').split('/');
-  return { pagina: PAGINAS[pagina] ? pagina : 'vandaag', arg };
+  return { pagina: PAGINAS[pagina] ? pagina : startPagina(), arg };
 }
 
 function render({ animeer = false } = {}) {
   if (!S.lid) return;
   const { pagina } = route();
-  app.innerHTML = `${topbalk()}<div class="${animeer ? 'binnen' : ''}">${PAGINAS[pagina]()}</div>`;
+  verbergTip();
+  nieuweRender();
+  document.body.classList.add('ingelogd');
+  zijbalk.innerHTML = breed.matches ? zijbalkHtml(pagina) : '';
+  zijbalk.hidden = !breed.matches;
+  app.innerHTML = `${topbalk()}<div class="pagina p-${pagina}${animeer ? ' binnen' : ''}">${PAGINAS[pagina]()}</div>`;
   nav.hidden = false;
   const actief = ONDER_MEER.has(pagina) ? 'meer' : pagina;
   nav.querySelectorAll('a').forEach(a => {
     a.classList.toggle('aan', a.dataset.nav === actief);
     if (a.dataset.nav === actief) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
   });
+  tekenGrafieken(app);
   naRender(pagina);
 }
 
@@ -797,7 +1232,7 @@ function naRender(pagina) {
 function werkVandaagBij() {
   const d = nu();
   const routines = routinesVoor(S.lid.rol, d);
-  const gedaan = new Set(S.checks.filter(c => c.datum === d).map(c => c.routine));
+  const gedaan = new Set(mijnChecks().filter(c => c.datum === d).map(c => c.routine));
   const aantal = routines.filter(r => gedaan.has(r.key)).length;
   const cirkel = document.getElementById('ring-vandaag');
   if (cirkel) {
@@ -806,7 +1241,7 @@ function werkVandaagBij() {
     document.getElementById('ring-vandaag-tekst').textContent = `${aantal}/${routines.length}`;
   }
   const getal = document.getElementById('streak-getal');
-  if (getal) getal.textContent = String(streak(S.checks, S.lid.rol, d));
+  if (getal) getal.textContent = String(streak(mijnChecks(), S.lid.rol, d));
   return { aantal, totaal: routines.length };
 }
 
@@ -839,10 +1274,11 @@ const acties = {
   async routine(el) {
     const key = el.dataset.key;
     const d = nu();
-    const aan = !S.checks.some(c => c.datum === d && c.routine === key);
+    const mijn = c => c.datum === d && c.routine === key && c.email === S.lid.email;
+    const aan = !S.checks.some(mijn);
     const rij = el.closest('.rij');
     if (aan) S.checks.push({ datum: d, routine: key, email: S.lid.email });
-    else S.checks = S.checks.filter(c => !(c.datum === d && c.routine === key));
+    else S.checks = S.checks.filter(c => !mijn(c));
     rij.classList.toggle('aan', aan);
     el.setAttribute('aria-pressed', String(aan));
     tril(aan ? 14 : 6);
@@ -857,7 +1293,7 @@ const acties = {
     try {
       await opslag.check(d, key, aan);
     } catch (e) {
-      if (aan) S.checks = S.checks.filter(c => !(c.datum === d && c.routine === key));
+      if (aan) S.checks = S.checks.filter(c => !mijn(c));
       else S.checks.push({ datum: d, routine: key, email: S.lid.email });
       melding(e.message, 'fout');
       render();
@@ -868,6 +1304,9 @@ const acties = {
   'week-verder': () => { S.weekVerschuiving += 1; render(); },
   'posts-terug': () => { S.postsVerschuiving -= 1; render(); },
   'posts-verder': () => { S.postsVerschuiving += 1; render(); },
+  'kal-terug': () => { S.kalenderVerschuiving -= 1; render(); },
+  'kal-verder': () => { S.kalenderVerschuiving += 1; render(); },
+  'kal-nu': () => { S.kalenderVerschuiving = 0; render(); },
 
   'taak-nieuw': el => openPaneel(taakPaneel(null, el.dataset.week)),
   'taak-open': el => openPaneel(taakPaneel(S.taken.find(t => t.id === el.dataset.id))),
@@ -1079,7 +1518,7 @@ const acties = {
   async 'demo-als'(el) {
     S.lid = await opslag.inloggen(el.dataset.email);
     await laadAlles();
-    location.hash = '#vandaag';
+    history.replaceState(null, '', `${location.pathname}${location.search}#${route().pagina === 'meer' || !location.hash ? startPagina() : route().pagina}`);
     render({ animeer: true });
   },
 
@@ -1310,6 +1749,9 @@ window.addEventListener('hashchange', () => {
   window.scrollTo({ top: 0 });
 });
 
+// Van telefoon- naar laptopbreedte of terug: zijbalk erbij of eraf.
+breed.addEventListener('change', () => render());
+
 document.addEventListener('visibilitychange', async () => {
   if (document.hidden || !S.lid || S.paneel || S.upload.bezig || Date.now() - S.geladenOp < 30_000) return;
   try {
@@ -1323,13 +1765,14 @@ document.addEventListener('visibilitychange', async () => {
 
 async function start() {
   await laadAlles();
-  if (!location.hash) history.replaceState(null, '', '#vandaag');
+  if (!location.hash) history.replaceState(null, '', `#${startPagina()}`);
   const { pagina, arg } = route();
   if (pagina === 'posts' && arg === 'tekst') S.postFilter = { status: 'tekst_nodig', merk: 'alles' };
   render({ animeer: true });
 }
 
 async function boot() {
+  installeerGrafieken();
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
