@@ -1,0 +1,59 @@
+# Zet de app na elke wijziging op main vanzelf live op GitHub Pages:
+# https://daandebrouwer873-crypto.github.io/marketing-socials/
+# Eerst de tests; faalt er iets, dan blijft de vorige versie online.
+name: Publiceren
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publiceren
+  cancel-in-progress: false
+
+jobs:
+  publiceren:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Tests
+        run: npm test
+
+      - name: Bouwen
+        run: npm run build
+        env:
+          # Bewust publiek, net als in de team-app: deze waarden staan ook in config.js.
+          SUPABASE_URL: https://xxgysjjnvnbwlnicmxnj.supabase.co
+          SUPABASE_PUBLISHABLE_KEY: sb_publishable_16SnuXoncWfvJnrhndJg9Q_5qzMMraa
+          PLAN_URL: https://claude.ai/code/artifact/1be65a5c-2c62-46b0-8304-639b0465e888
+          COMMIT_REF: ${{ github.sha }}
+
+      - name: Controleren dat het de echte app is en niet de demo
+        run: grep -q '"demo":false' dist/config.js
+
+      - name: Naar de gh-pages-branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git clone --quiet --depth 1 --branch gh-pages "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" site
+          find site -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -r dist/. site/
+          touch site/.nojekyll
+          cd site
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Niets veranderd."
+            exit 0
+          fi
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit --quiet -m "Publiceren: main ${GITHUB_SHA::7}"
+          git push --quiet origin gh-pages
