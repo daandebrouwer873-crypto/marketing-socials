@@ -67,7 +67,18 @@ De app uploadt via een serviceaccount: een apart Google-account alleen voor de a
 De vaste onderwerpmappen staan in `public/lib/onderwerpen.js`. De mappen "Nieuw - te sorteren"
 en "Brouwerij de Brouwer" maakt de app zelf aan in de BEELDBANK bij de eerste upload.
 
-### 3. Netlify (de website)
+### 3. Online: GitHub Pages (gaat vanzelf)
+
+De app staat op **https://daandebrouwer873-crypto.github.io/marketing-socials/**.
+Elke wijziging op `main` gaat vanzelf live: `.github/workflows/publiceren.yml` draait de tests,
+bouwt de app en zet hem in de branch `gh-pages`. Na een paar minuten staat de nieuwe versie online.
+Faalt een test, dan blijft de vorige versie staan. Je ziet het verloop onder **Actions** in GitHub;
+daar kun je ook met **Run workflow** opnieuw publiceren.
+
+Direct uploaden naar Google Drive werkt alleen op Netlify, omdat daar de uploadfunctie draait.
+Op GitHub Pages opent de app de juiste map in Google Drive.
+
+### 4. Netlify (optioneel, voor direct uploaden)
 
 De site `pellens-marketing` staat al in het Netlify-team van Pellens, met `SUPABASE_URL`,
 `SUPABASE_PUBLISHABLE_KEY` en `PLAN_URL` ingevuld.
@@ -88,10 +99,19 @@ De site `pellens-marketing` staat al in het Netlify-team van Pellens, met `SUPAB
 
    Na het toevoegen van de Google-variabelen: **Deploys → Trigger deploy**.
 
-### 4. Op de telefoon
+### 5. Op de telefoon
 
 Open het adres in Safari of Chrome en kies **Deel → Zet op beginscherm**. De app opent dan
 schermvullend, met een eigen icoon.
+
+## Zelf iets veranderen
+
+- **Doelen:** in de app zelf, onder Doelen en dan Aanpassen (alleen de eigenaar).
+- **Teksten van het plan** (maandthema's, spelregels, routines): `public/lib/plan.js`. Aanpassen kan
+  in GitHub in de browser met het potloodje. Na het opslaan op `main` gaat het vanzelf live.
+- **Grotere verbouwingen:** met Claude Code op je eigen laptop (Claude Desktop, tabblad Code, in de
+  map van deze repository). Wil je vanaf je telefoon sturen terwijl je laptop het werk doet, start
+  dan `claude remote-control` in die map.
 
 ## Ontwikkelen en testen
 
