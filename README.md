@@ -163,6 +163,10 @@ Zonder geheimen doet de workflow niets.
    zet (`accounts/…/locations/…`). Zonder die variabele zoekt het script het profiel "Pellens" op.
 5. Start de eerste keer zelf: **Actions → Google-cijfers → Run workflow**.
 
+Zolang Google de toegang niet heeft goedgekeurd, blijft de run groen met "Wacht op Google" in de
+uitvoer; een verlopen koppeling of andere storing maakt hem rood. Na goedkeuring wordt ook de
+**Google My Business API** (voor reviews en score) zichtbaar in de API-bibliotheek: zet die dan aan.
+
 ### 8. Plaatsen op Instagram en Facebook
 
 Een post met een goedgekeurde tekst zet Daan vanuit de app online: fotopost, carrousel, reel of story,
@@ -170,7 +174,9 @@ op Instagram en de Facebook-pagina van Pellens. Dat doet de serverfunctie `marke
 Supabase met hetzelfde paginatoken als stap 6. Het token staat alleen in de geheimen van GitHub en
 Supabase, nooit in de app.
 
-1. Open in Supabase de **SQL Editor** en voer `supabase/migrations/003_plaatsen.sql` uit.
+1. Open in Supabase de **SQL Editor** en voer `supabase/migrations/003_plaatsen.sql` uit. Supabase waarschuwt dan
+   voor "destructive operations": dat zijn alleen de eigen regels van deze migratie die opnieuw worden
+   gezet. Kies **Run query**. Onderaan moet **Success. No rows returned** staan.
 2. Maak in Supabase een toegangssleutel: klik rechtsboven op je account, **Access Tokens →
    Generate new token**, bijvoorbeeld `github-plaatsen-functie`. Zet hem in GitHub onder
    **Settings → Secrets and variables → Actions** als `SUPABASE_ACCESS_TOKEN`.

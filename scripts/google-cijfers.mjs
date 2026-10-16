@@ -36,9 +36,20 @@ export async function toegangstoken({ clientId, clientSecret, refreshToken }) {
   if (!antwoord.ok || !data.access_token) {
     const verlopen = data.error === 'invalid_grant'
       ? ' De Google-koppeling is verlopen of ingetrokken: maak een nieuw refresh token.' : '';
-    throw new Error(`Google-inlog weigert (${data.error || antwoord.status}).${verlopen}`);
+    const client = data.error === 'invalid_client' ? ` ${vormcontrole({ clientId, clientSecret, refreshToken })}` : '';
+    throw new Error(`Google-inlog weigert (${data.error || antwoord.status}).${verlopen}${client}`);
   }
   return data.access_token;
+}
+
+// Zegt alleen of een geheim de juiste vorm heeft (begin en lengte), nooit de waarde zelf.
+export function vormcontrole({ clientId, clientSecret, refreshToken }) {
+  const jaNee = v => (v ? 'ja' : 'NEE');
+  return [
+    `GBP_CLIENT_ID eindigt op .apps.googleusercontent.com: ${jaNee(clientId.endsWith('.apps.googleusercontent.com'))} (${clientId.length} tekens)`,
+    `GBP_CLIENT_SECRET begint met GOCSPX-: ${jaNee(clientSecret.startsWith('GOCSPX-'))} (${clientSecret.length} tekens, hoort 35)`,
+    `GBP_REFRESH_TOKEN begint met 1//: ${jaNee(refreshToken.startsWith('1//'))} (${refreshToken.length} tekens)`,
+  ].join('; ') + '.';
 }
 
 async function haal(adres, token) {
@@ -46,9 +57,14 @@ async function haal(adres, token) {
   const data = await antwoord.json().catch(() => ({}));
   if (!antwoord.ok) {
     const fout = data.error || {};
-    const quotum = antwoord.status === 429 || /quota/i.test(fout.message || '')
-      ? ' Waarschijnlijk is de API-toegang nog niet goedgekeurd (quotum 0).' : '';
-    throw new Error(`Google weigert (${antwoord.status}): ${fout.message || 'onbekende fout'}.${quotum}`);
+    const tekst = `${fout.message || ''} ${JSON.stringify(fout.details || '')}`;
+    // Quotum 0 of een API die pas na goedkeuring aan kan: geen storing, maar wachten op Google.
+    const wacht = antwoord.status === 429 || /quota/i.test(tekst)
+      || (antwoord.status === 403 && /SERVICE_DISABLED|has not been used|is disabled/i.test(tekst));
+    const e = new Error(`Google weigert (${antwoord.status}): ${fout.message || 'onbekende fout'}.`
+      + (wacht ? ' Waarschijnlijk is de API-toegang nog niet goedgekeurd.' : ''));
+    e.wachtOpGoedkeuring = wacht;
+    throw e;
   }
   return data;
 }
@@ -143,17 +159,19 @@ export async function draai(env = process.env, log = console.log, moment = new D
     profiel = await vindProfiel(token, env);
     log(`Profiel: ${profiel.account}/${profiel.locatie}`);
   } catch (e) {
-    return { rijen: [], fouten: [e.message] };
+    return e.wachtOpGoedkeuring ? { rijen: [], fouten: [], wachten: [e.message] } : { rijen: [], fouten: [e.message], wachten: [] };
   }
 
   const rijen = [];
   const fouten = [];
+  const wachten = [];
+  const meld = (onderdeel, e) => (e.wachtOpGoedkeuring ? wachten : fouten).push(`${onderdeel}: ${e.message}`);
   try {
     const totalen = maandTotalen(await haal(prestatieAdres(profiel.locatie, vanaf, tot), token))
       .filter(r => r.periode_start >= vanaf && r.periode_start <= dezeMaand);
     rijen.push(...totalen);
   } catch (e) {
-    fouten.push(`Profielcijfers: ${e.message}`);
+    meld('Profielcijfers', e);
   }
   try {
     const data = await haal(`${REVIEWS}/${profiel.account}/${profiel.locatie}/reviews?pageSize=1`, token);
@@ -162,7 +180,7 @@ export async function draai(env = process.env, log = console.log, moment = new D
       rijen.push({ metric: 'google_score', periode_start: dezeMaand, waarde: data.averageRating });
     }
   } catch (e) {
-    fouten.push(`Reviews: ${e.message}`);
+    meld('Reviews', e);
   }
 
   for (const r of rijen) log(`${r.periode_start} ${r.metric} = ${r.waarde}`);
@@ -174,11 +192,13 @@ export async function draai(env = process.env, log = console.log, moment = new D
       fouten.push(e.message);
     }
   }
-  return { rijen, fouten };
+  return { rijen, fouten, wachten };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const { fouten } = await draai();
+  const { fouten, wachten = [] } = await draai();
+  // Wachten op Google is geen storing: dat komt in de uitvoer, maar de run blijft groen.
+  for (const w of wachten) console.log(`Wacht op Google: ${w}`);
   for (const f of fouten) console.error(f);
   // Een rode run stuurt Daan een mail van GitHub: zo valt een verlopen koppeling op.
   if (fouten.length) process.exitCode = 1;

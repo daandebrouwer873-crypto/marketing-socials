@@ -125,11 +125,37 @@ test('haalt profielcijfers per maand en reviews op en slaat ze op', async () => 
   assert.ok(uitvoer.includes('Profiel: accounts/222/locations/7'));
 });
 
-test('nog niet goedgekeurd (quotum 0): reviews gaan door, profielcijfers geven een duidelijke fout', async () => {
+test('nog niet goedgekeurd (quotum 0): geen fout maar wachten, reviews gaan door', async () => {
   prestatieStatus = 429;
-  const { rijen, fouten } = await draai(env(), log, VANDAAG);
+  const { rijen, fouten, wachten } = await draai(env(), log, VANDAAG);
   assert.deepEqual(rijen.map(r => r.metric), ['google_reviews', 'google_score']);
-  assert.match(fouten[0], /^Profielcijfers: Google weigert \(429\).*nog niet goedgekeurd/);
+  assert.deepEqual(fouten, []);
+  assert.match(wachten[0], /^Profielcijfers: Google weigert \(429\).*nog niet goedgekeurd/);
+});
+
+test('reviews-API nog niet aan (403 SERVICE_DISABLED) is wachten, een gewone 403 is een fout', async () => {
+  reviewsAntwoord = { status: 403, body: { error: { code: 403, message: 'Google My Business API has not been used in project 682139451223 before or it is disabled.', details: [{ reason: 'SERVICE_DISABLED' }] } } };
+  const wacht = await draai(env(), log, VANDAAG);
+  assert.deepEqual(wacht.fouten, []);
+  assert.match(wacht.wachten[0], /^Reviews: .*nog niet goedgekeurd/);
+  assert.equal(wacht.rijen.length, 6, 'de profielcijfers komen wel binnen');
+
+  reviewsAntwoord = { status: 403, body: { error: { code: 403, message: 'The caller does not have permission' } } };
+  const fout = await draai(env(), log, VANDAAG);
+  assert.match(fout.fouten[0], /^Reviews: Google weigert \(403\): The caller does not have permission\.$/);
+  assert.deepEqual(fout.wachten, []);
+});
+
+test('al bij het zoeken van het profiel quotum 0: niets opgehaald, wel groen', async () => {
+  prestatieStatus = 429;
+  const origineel = globalThis.fetch;
+  globalThis.fetch = async (url, opties) => (String(url).endsWith('/v1/accounts')
+    ? Response.json({ error: { code: 429, message: "Quota exceeded for quota metric 'Requests' ... limit 0" } }, { status: 429 })
+    : origineel(url, opties));
+  const { rijen, fouten, wachten } = await draai(env(), log, VANDAAG);
+  assert.deepEqual(rijen, []);
+  assert.deepEqual(fouten, []);
+  assert.match(wachten[0], /nog niet goedgekeurd/);
 });
 
 test('verlopen koppeling geeft een duidelijke fout en roept verder niets aan', async () => {
@@ -138,6 +164,16 @@ test('verlopen koppeling geeft een duidelijke fout en roept verder niets aan', a
   assert.deepEqual(rijen, []);
   assert.match(fouten[0], /Google-inlog weigert \(invalid_grant\).*nieuw refresh token/);
   assert.equal(aanroepen.length, 1);
+});
+
+test('verkeerde client geeft een vormcontrole zonder de geheimen zelf', async () => {
+  tokenAntwoord = { status: 401, body: { error: 'invalid_client', error_description: 'Unauthorized' } };
+  const { fouten } = await draai(env({ GBP_CLIENT_SECRET: '1//verkeerd-geplakt' }), log, VANDAAG);
+  assert.match(fouten[0], /invalid_client/);
+  assert.match(fouten[0], /GBP_CLIENT_ID eindigt op \.apps\.googleusercontent\.com: ja/);
+  assert.match(fouten[0], /GBP_CLIENT_SECRET begint met GOCSPX-: NEE \(19 tekens, hoort 35\)/);
+  assert.match(fouten[0], /GBP_REFRESH_TOKEN begint met 1\/\/: ja/);
+  assert.ok(!fouten[0].includes('verkeerd-geplakt') && !fouten[0].includes('1//nep'), 'geen geheimen in de melding');
 });
 
 test('vast ingesteld profiel slaat het zoeken over', async () => {
