@@ -12,6 +12,9 @@ import { uploadNaarBeeldbank, mimeVan } from './lib/upload.js';
 import { dicterenKan, startDicteren, memoKan, startMemo } from './lib/spraak.js';
 import { confetti, confettiBij, tril, melding } from './lib/effecten.js';
 import { icoon, monogram } from './lib/iconen.js';
+// plaatsregels.js zet de build erbij: het is supabase/functions/marketing-plaatsen/regels.js.
+import { PLATFORMS, bezwaren, platformsVoor } from './lib/plaatsregels.js';
+import { maakKlaar, uitlegVoor } from './lib/plaatsmedia.js';
 import {
   lijnGrafiek, tekenGrafieken, nieuweRender, statTegel, staafLijst, tipAttr, installeerGrafieken, verbergTip,
 } from './lib/grafiek.js';
@@ -41,6 +44,8 @@ const S = {
   cijferSoort: 'week',
   cijferVerschuiving: 0,
   upload: { bestanden: [], onderwerp: null, bezig: false },
+  mediaBezig: false,
+  plaatsenBezig: null,
   kwartier: { stap: 1, start: 0, doorgeschoven: new Set() },
   paneel: null,
   opname: null,
@@ -412,6 +417,130 @@ function kortNaam(naam) {
   return zonderDatum.length > 30 ? `${zonderDatum.slice(0, 29)}…` : zonderDatum;
 }
 
+// ---------------------------------------------------------------------------
+// Plaatsen op Instagram en Facebook
+
+const opMeta = p => Boolean(p.ig_media_id || p.fb_post_id);
+
+// De definitieve foto's of video, in volgorde. Mila zet ze klaar, Daan plaatst.
+function mediaBlok(p) {
+  if (!platformsVoor(p.kanaal).length || S.lid.rol === 'manager') return '';
+  const media = p.media || [];
+  const vast = opMeta(p) || p.status === 'geplaatst';
+  // Foto's in hun echte verhouding: zo ziet de tegel eruit zoals de post.
+  const tegels = media.map((m, i) => `<div class="voorbeeld online-tegel" data-media="${esc(m.pad)}"${m.breedte && m.hoogte ? ` style="aspect-ratio:${Number(m.breedte)}/${Number(m.hoogte)}"` : ''}>
+      <span class="laad">${icoon(m.soort === 'video' ? 'geluid' : 'beeld', 22)}</span>
+      <span class="volgnr">${i + 1}</span>
+      ${m.soort === 'video' && m.duur ? `<span class="duur">${Math.round(m.duur)} s</span>` : ''}
+      ${vast ? '' : `<button type="button" class="weg" data-actie="media-weg" data-pad="${esc(m.pad)}" aria-label="Haal bestand ${i + 1} weg">✕</button>`}
+    </div>`).join('');
+  return `<div class="veld online-blok" id="online-blok">
+    <span>Wat gaat er online</span>
+    ${media.length ? `<div class="voorbeelden">${tegels}</div>` : ''}
+    <div id="online-bezig"></div>
+    ${vast || media.length >= 10 ? '' : `<label class="knop stil klein kies-media">${icoon('plus')} ${media.length ? 'Meer kiezen' : 'Foto\'s of video kiezen'}<input type="file" data-input="plaatsmedia" data-id="${esc(p.id)}" accept="image/*,video/mp4,video/quicktime" multiple hidden></label>`}
+    <p class="mini">${esc(uitlegVoor(p.kanaal))}</p>
+  </div>`;
+}
+
+function plaatsLinks(p) {
+  const links = [];
+  if (p.ig_link) links.push(`<a class="knop stil klein" href="${esc(p.ig_link)}" target="_blank" rel="noopener">Bekijk op Instagram</a>`);
+  else if (p.ig_media_id) links.push('<span class="pill p-goud">Op Instagram</span>');
+  if (p.fb_post_id) links.push(`<a class="knop stil klein" href="https://www.facebook.com/${esc(p.fb_post_id)}" target="_blank" rel="noopener">Bekijk op Facebook</a>`);
+  return links.length ? `<div class="plaats-links">${links.join('')}</div>` : '';
+}
+
+function plaatsBlok(p) {
+  const platforms = platformsVoor(p.kanaal);
+  if (!platforms.length) return '';
+  if (p.status === 'geplaatst' || !isEigenaar()) {
+    const links = plaatsLinks(p);
+    if (links) return `<div class="plaats-blok" id="plaats-blok"><h3 class="serif">Online</h3>${links}</div>`;
+    return isSocial() && p.status !== 'geplaatst'
+      ? '<p class="mini" id="plaats-blok">Staan de beelden klaar en is de tekst goedgekeurd, dan zet Daan de post online met Plaatsen.</p>'
+      : '';
+  }
+
+  const media = p.media || [];
+  const eerst = [];
+  if (!p.tekst_goedgekeurd) eerst.push('Keur eerst de tekst goed.');
+  if (!media.length) eerst.push('Zet eerst de beelden klaar.');
+  const open = platforms.filter(k => (k === 'instagram' ? !p.ig_media_id : !p.fb_post_id));
+  const letOp = media.length ? open.flatMap(k => bezwaren(p, k).map(b => `${PLATFORMS[k]}: ${b}`)) : [];
+  const keuzes = platforms.map(k => (open.includes(k)
+    ? `<label><input type="checkbox" name="op" value="${k}" checked><span class="chip">${PLATFORMS[k]}</span></label>`
+    : `<span class="chip vast">${icoon('check', 14)} ${PLATFORMS[k]} staat online</span>`)).join('');
+
+  return `<div class="plaats-blok" id="plaats-blok">
+    <h3 class="serif">Online zetten</h3>
+    <p class="mini">${p.kanaal === 'story' ? 'Een story heeft geen tekst: alleen het beeld gaat mee.' : 'Met de goedgekeurde tekst, precies zoals hij hierboven staat.'}</p>
+    <div class="keuze">${keuzes}</div>
+    ${eerst.length ? `<p class="mini">${eerst.join(' ')}</p>` : ''}
+    ${letOp.length ? `<ul class="plaats-let">${letOp.map(t => `<li>${esc(t)}</li>`).join('')}</ul>` : ''}
+    ${p.plaatsen_fout ? `<p class="fout-tekst">${esc(p.plaatsen_fout)}</p>` : ''}
+    ${plaatsLinks(p)}
+    <button type="button" class="knop" data-actie="plaatsen" ${eerst.length ? 'disabled' : ''}>${icoon('uploaden')} Nu plaatsen</button>
+    <p class="mini plaats-stand" id="plaats-stand" aria-live="polite"></p>
+  </div>`;
+}
+
+// Na een wijziging alleen deze twee blokken vernieuwen, zodat een half getypte tekst blijft staan.
+function verversPlaatsen(p) {
+  const media = document.getElementById('online-blok');
+  if (media) media.outerHTML = mediaBlok(p);
+  const plaats = document.getElementById('plaats-blok');
+  if (plaats) plaats.outerHTML = plaatsBlok(p);
+  else if (media) document.getElementById('online-blok')?.insertAdjacentHTML('afterend', plaatsBlok(p));
+  vulVoorbeelden(p);
+}
+
+// De voorbeelden staan in afgeschermde opslag: per bestand een tijdelijke link.
+async function vulVoorbeelden(p) {
+  for (const tegel of document.querySelectorAll('.online-tegel[data-media]')) {
+    const m = (p.media || []).find(x => x.pad === tegel.dataset.media);
+    if (!m || tegel.querySelector('img, video')) continue;
+    try {
+      const url = await opslag.mediaUrl(m.pad);
+      if (!url) continue;
+      tegel.querySelector('.laad').outerHTML = m.soort === 'video'
+        ? `<video muted playsinline preload="metadata" src="${esc(url)}#t=0.1"></video>`
+        : `<img src="${esc(url)}" alt="">`;
+    } catch { /* het icoon blijft staan */ }
+  }
+}
+
+async function mediaToevoegen(postId, bestanden) {
+  const post = S.posts.find(p => p.id === postId);
+  if (!post || S.mediaBezig) return;
+  S.mediaBezig = true;
+  const lijst = [...(post.media || [])];
+  const eerste = lijst.find(m => m.soort === 'foto' && m.breedte && m.hoogte);
+  let eersteRatio = post.kanaal === 'carrousel' && eerste ? eerste.breedte / eerste.hoogte : null;
+  for (const bestand of bestanden) {
+    if (lijst.length >= 10) { melding('Maximaal 10 bestanden per post.', 'fout'); break; }
+    const plek = document.getElementById('online-bezig');
+    if (plek) plek.innerHTML = `<div class="online-laden"><span>${esc(bestand.name)}</span><div class="balk-groot"><i style="width:3%"></i></div></div>`;
+    try {
+      const { blob, gegevens } = await maakKlaar(bestand, post.kanaal, eersteRatio);
+      if (post.kanaal === 'carrousel' && !eersteRatio && gegevens.soort === 'foto') eersteRatio = gegevens.breedte / gegevens.hoogte;
+      const ext = gegevens.soort === 'foto' ? 'jpg' : gegevens.mime === 'video/quicktime' ? 'mov' : 'mp4';
+      const pad = await opslag.mediaUploaden(post.id, blob, ext, v => {
+        const balk = document.querySelector('#online-bezig .balk-groot i');
+        if (balk) balk.style.width = `${Math.max(3, Math.round(v * 100))}%`;
+      });
+      lijst.push({ pad, ...gegevens });
+      Object.assign(post, await opslag.postOpslaan({ id: post.id, media: lijst }));
+    } catch (e) {
+      melding(e.message, 'fout');
+    }
+  }
+  S.mediaBezig = false;
+  verversPlaatsen(post);
+}
+
+const pauze = ms => new Promise(r => setTimeout(r, ms));
+
 function keuzeRij(naam, opties, gekozen) {
   return `<div class="keuze">${Object.entries(opties).map(([k, o]) => `<label><input type="radio" name="${naam}" value="${k}" ${k === gekozen ? 'checked' : ''}><span class="chip">${esc(o.label)}</span></label>`).join('')}</div>`;
 }
@@ -468,6 +597,7 @@ function postPaneel(post) {
     <form data-form="post" data-id="${esc(p.id || '')}">
       ${detailVelden}
       ${tekstDeel}
+      ${nieuw ? '' : `${mediaBlok(p)}${plaatsBlok(p)}`}
       <p class="fout-tekst" data-fout></p>
       <div class="knoppen${knoppen.length === 1 ? ' een' : ''}">${knoppen.join('')}</div>
       ${!nieuw && details ? `<div style="text-align:center;margin-top:10px"><button type="button" class="link-knop" data-actie="post-weg" data-id="${esc(p.id)}">Post verwijderen</button></div>` : ''}
@@ -1345,7 +1475,70 @@ const acties = {
   'post-nieuw': () => openPaneel(postPaneel(null)),
   'post-open': el => {
     const post = S.posts.find(p => p.id === el.dataset.id);
-    if (post) openPaneel(postPaneel(post));
+    if (!post) return;
+    openPaneel(postPaneel(post));
+    vulVoorbeelden(post);
+  },
+
+  async 'media-weg'(el) {
+    const post = S.posts.find(p => p.id === el.closest('form').dataset.id);
+    if (!post || S.mediaBezig) return;
+    const pad = el.dataset.pad;
+    Object.assign(post, await bewaar(() => opslag.postOpslaan({ id: post.id, media: (post.media || []).filter(m => m.pad !== pad) })));
+    opslag.mediaVerwijderen(pad).catch(() => { /* blijft dan in de opslag staan */ });
+    verversPlaatsen(post);
+  },
+
+  // Plaatst de post. Moet Meta een video nog verwerken, dan vraagt de app het om de paar seconden
+  // opnieuw. Gaat het scherm dicht, dan gaat de app bij de volgende druk verder waar hij was.
+  async plaatsen(el) {
+    const form = el.closest('form');
+    const post = S.posts.find(p => p.id === form.dataset.id);
+    if (!post || S.plaatsenBezig) return;
+    const kanalen = [...form.querySelectorAll('input[name=op]:checked')].map(i => i.value);
+    if (!kanalen.length) { foutIn(form, 'Kies Instagram, Facebook of allebei.'); return; }
+    if (form.tekst && (form.tekst.value.trim() || null) !== (post.tekst || null)) {
+      foutIn(form, 'Je hebt de tekst aangepast. Keur hem eerst goed, dan gaat precies die tekst online.');
+      return;
+    }
+    const letOp = kanalen.flatMap(k => bezwaren(post, k).map(b => `${PLATFORMS[k]}: ${b}`));
+    if (letOp.length) { foutIn(form, letOp.join(' ')); return; }
+    if (!confirm(`Deze post gaat nu online op ${kanalen.map(k => PLATFORMS[k]).join(' en ')}. Doorgaan?`)) return;
+
+    S.plaatsenBezig = post.id;
+    el.disabled = true;
+    foutIn(form, '');
+    const stand = tekst => { const p = document.getElementById('plaats-stand'); if (p) p.textContent = tekst; };
+    stand('Bezig met plaatsen…');
+    const begin = Date.now();
+    try {
+      for (;;) {
+        const r = await opslag.plaatsen(post.id, kanalen);
+        if (r.post) Object.assign(post, r.post);
+        if (r.klaar) break;
+        if (Date.now() - begin > 10 * 60_000) {
+          throw new Error('Instagram is na tien minuten nog bezig. Druk later nog eens op Plaatsen; de app gaat verder waar hij was.');
+        }
+        stand(r.melding || 'Even geduld.');
+        await pauze(r.opnieuwOver || 10_000);
+      }
+      S.plaatsenBezig = null;
+      if (S.paneel && document.getElementById('plaats-blok')) sluitPaneel();
+      render();
+      confetti({ aantal: 220, kracht: 1.3 });
+      tril(30);
+      melding(`Staat online op ${kanalen.map(k => PLATFORMS[k]).join(' en ')}.`);
+    } catch (e) {
+      S.plaatsenBezig = null;
+      if (e.post) Object.assign(post, e.post);
+      if (document.getElementById('plaats-blok')) {
+        verversPlaatsen(post);
+        if (!post.plaatsen_fout) foutIn(form, e.message);
+      } else {
+        melding(e.message, 'fout');
+      }
+      render();
+    }
   },
 
   async 'post-weg'(el) {
@@ -1724,6 +1917,11 @@ document.addEventListener('change', e => {
     voegBestandenToe(e.target.files);
     e.target.value = '';
   }
+  if (e.target.matches('[data-input="plaatsmedia"]') && e.target.files.length) {
+    const bestanden = [...e.target.files];
+    e.target.value = '';
+    mediaToevoegen(e.target.dataset.id, bestanden).catch(fout => console.error(fout));
+  }
 });
 
 document.addEventListener('dragover', e => {
@@ -1756,7 +1954,7 @@ window.addEventListener('hashchange', () => {
 breed.addEventListener('change', () => render());
 
 document.addEventListener('visibilitychange', async () => {
-  if (document.hidden || !S.lid || S.paneel || S.upload.bezig || Date.now() - S.geladenOp < 30_000) return;
+  if (document.hidden || !S.lid || S.paneel || S.upload.bezig || S.plaatsenBezig || Date.now() - S.geladenOp < 30_000) return;
   try {
     await laadAlles();
     render();

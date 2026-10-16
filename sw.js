@@ -1,9 +1,10 @@
 // Bewaart de app-schil, zodat hij direct opent. Gegevens komen altijd vers van de server.
-const CACHE = 'pellens-marketing-91f969d1fc07';
+const CACHE = 'pellens-marketing-be1702e41890';
 const SCHIL = [
   './', 'index.html', 'app.css', 'app.js', 'config.js', 'manifest.json',
   'thema.js', 'thema-start.js',
   'lib/logica.js', 'lib/plan.js', 'lib/opslag.js', 'lib/upload.js', 'lib/spraak.js', 'lib/effecten.js', 'lib/onderwerpen.js', 'lib/iconen.js', 'lib/grafiek.js',
+  'lib/plaatsmedia.js', 'lib/plaatsregels.js',
   'icons/icon-192.png', 'icons/monogram.svg',
 ];
 
