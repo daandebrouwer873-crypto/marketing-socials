@@ -133,7 +133,37 @@ Faalt de workflow (verlopen token, ander wachtwoord, beheerdersrol kwijt), dan m
 een nieuw paginatoken en vervang het geheim. GitHub zet geplande workflows uit als er 60 dagen niets
 in de repository verandert; aanzetten kan onder Actions met één klik.
 
-### 7. Plaatsen op Instagram en Facebook
+### 7. Google-profielcijfers en reviews vanzelf ophalen
+
+Elke ochtend om 05:30 (UTC) haalt `.github/workflows/google-cijfers.yml` de cijfers van het
+Google-bedrijfsprofiel Pellens op en zet ze bij Cijfers als maandcijfer: weergaven (Zoeken en Maps
+samen), routeverzoeken, belklikken, websiteklikken, aantal reviews en score. De vorige maand wordt
+elke dag opnieuw opgeteld, omdat Google een paar dagen achterloopt. In de app staat "via Google".
+Zonder geheimen doet de workflow niets.
+
+1. Google Cloud-project `pellens-marketing` (nummer 682139451223) heeft de Business Profile
+   Performance API, Account Management API en Business Information API aan. Google moet de toegang
+   goedkeuren (aanvraag van 16 oktober 2026, case 4-9016000041638). Goedgekeurd is als het quotum
+   in de Cloud Console van 0 naar 300 per minuut gaat.
+2. Na goedkeuring: een OAuth-toestemmingsscherm (extern, status **In production**, anders verloopt
+   het refresh token na 7 dagen) en een OAuth-client van het type **Web application** met als
+   redirect-URI `https://developers.google.com/oauthplayground`.
+3. In de [OAuth Playground](https://developers.google.com/oauthplayground): eigen client-ID en
+   -secret invullen, scope `https://www.googleapis.com/auth/business.manage`, inloggen met het
+   account dat het profiel beheert en de code inwisselen voor een refresh token.
+4. Zet in GitHub onder **Settings → Secrets and variables → Actions**:
+
+   | Naam | Waarde |
+   | --- | --- |
+   | `GBP_CLIENT_ID` | Client-ID van de OAuth-client |
+   | `GBP_CLIENT_SECRET` | Client-secret van de OAuth-client |
+   | `GBP_REFRESH_TOKEN` | Refresh token uit de Playground |
+
+   Optioneel, onder **Variables**: `GBP_LOCATIE` met de waarde die de eerste run in de uitvoer
+   zet (`accounts/…/locations/…`). Zonder die variabele zoekt het script het profiel "Pellens" op.
+5. Start de eerste keer zelf: **Actions → Google-cijfers → Run workflow**.
+
+### 8. Plaatsen op Instagram en Facebook
 
 Een post met een goedgekeurde tekst zet Daan vanuit de app online: fotopost, carrousel, reel of story,
 op Instagram en de Facebook-pagina van Pellens. Dat doet de serverfunctie `marketing-plaatsen` in

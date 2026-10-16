@@ -1,5 +1,5 @@
 # Zet de serverfunctie marketing-plaatsen live in Supabase na elke wijziging eraan op main,
-# en geeft het Meta-token uit de GitHub-geheimen door aan Supabase. Zie de README, stap 7.
+# en geeft het Meta-token uit de GitHub-geheimen door aan Supabase. Zie de README, stap 8.
 # Zonder SUPABASE_ACCESS_TOKEN doet hij niets. Faalt hij, dan stuurt GitHub Daan een mail.
 name: Plaatsen-functie
 

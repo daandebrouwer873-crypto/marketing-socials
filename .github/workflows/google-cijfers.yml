@@ -1,0 +1,32 @@
+# Haalt elke ochtend de cijfers van het Google-bedrijfsprofiel op en zet ze in de app.
+# De geheimen staan onder Settings > Secrets and variables > Actions; zie de README, stap 7.
+# Zonder geheimen doet hij niets. Faalt hij, dan stuurt GitHub Daan een mail.
+name: Google-cijfers
+
+on:
+  schedule:
+    - cron: '30 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ophalen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Profielcijfers en reviews ophalen en opslaan
+        run: node scripts/google-cijfers.mjs
+        env:
+          SUPABASE_URL: https://xxgysjjnvnbwlnicmxnj.supabase.co
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          GBP_CLIENT_ID: ${{ secrets.GBP_CLIENT_ID }}
+          GBP_CLIENT_SECRET: ${{ secrets.GBP_CLIENT_SECRET }}
+          GBP_REFRESH_TOKEN: ${{ secrets.GBP_REFRESH_TOKEN }}
+          GBP_LOCATIE: ${{ vars.GBP_LOCATIE }}
