@@ -163,6 +163,10 @@ Zonder geheimen doet de workflow niets.
    zet (`accounts/…/locations/…`). Zonder die variabele zoekt het script het profiel "Pellens" op.
 5. Start de eerste keer zelf: **Actions → Google-cijfers → Run workflow**.
 
+Zolang Google de toegang niet heeft goedgekeurd, blijft de run groen met "Wacht op Google" in de
+uitvoer; een verlopen koppeling of andere storing maakt hem rood. Na goedkeuring wordt ook de
+**Google My Business API** (voor reviews en score) zichtbaar in de API-bibliotheek: zet die dan aan.
+
 ## Zelf iets veranderen
 
 - **Doelen:** in de app zelf, onder Doelen en dan Aanpassen (alleen de eigenaar).

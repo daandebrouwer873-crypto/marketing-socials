@@ -125,11 +125,37 @@ test('haalt profielcijfers per maand en reviews op en slaat ze op', async () => 
   assert.ok(uitvoer.includes('Profiel: accounts/222/locations/7'));
 });
 
-test('nog niet goedgekeurd (quotum 0): reviews gaan door, profielcijfers geven een duidelijke fout', async () => {
+test('nog niet goedgekeurd (quotum 0): geen fout maar wachten, reviews gaan door', async () => {
   prestatieStatus = 429;
-  const { rijen, fouten } = await draai(env(), log, VANDAAG);
+  const { rijen, fouten, wachten } = await draai(env(), log, VANDAAG);
   assert.deepEqual(rijen.map(r => r.metric), ['google_reviews', 'google_score']);
-  assert.match(fouten[0], /^Profielcijfers: Google weigert \(429\).*nog niet goedgekeurd/);
+  assert.deepEqual(fouten, []);
+  assert.match(wachten[0], /^Profielcijfers: Google weigert \(429\).*nog niet goedgekeurd/);
+});
+
+test('reviews-API nog niet aan (403 SERVICE_DISABLED) is wachten, een gewone 403 is een fout', async () => {
+  reviewsAntwoord = { status: 403, body: { error: { code: 403, message: 'Google My Business API has not been used in project 682139451223 before or it is disabled.', details: [{ reason: 'SERVICE_DISABLED' }] } } };
+  const wacht = await draai(env(), log, VANDAAG);
+  assert.deepEqual(wacht.fouten, []);
+  assert.match(wacht.wachten[0], /^Reviews: .*nog niet goedgekeurd/);
+  assert.equal(wacht.rijen.length, 6, 'de profielcijfers komen wel binnen');
+
+  reviewsAntwoord = { status: 403, body: { error: { code: 403, message: 'The caller does not have permission' } } };
+  const fout = await draai(env(), log, VANDAAG);
+  assert.match(fout.fouten[0], /^Reviews: Google weigert \(403\): The caller does not have permission\.$/);
+  assert.deepEqual(fout.wachten, []);
+});
+
+test('al bij het zoeken van het profiel quotum 0: niets opgehaald, wel groen', async () => {
+  prestatieStatus = 429;
+  const origineel = globalThis.fetch;
+  globalThis.fetch = async (url, opties) => (String(url).endsWith('/v1/accounts')
+    ? Response.json({ error: { code: 429, message: "Quota exceeded for quota metric 'Requests' ... limit 0" } }, { status: 429 })
+    : origineel(url, opties));
+  const { rijen, fouten, wachten } = await draai(env(), log, VANDAAG);
+  assert.deepEqual(rijen, []);
+  assert.deepEqual(fouten, []);
+  assert.match(wachten[0], /nog niet goedgekeurd/);
 });
 
 test('verlopen koppeling geeft een duidelijke fout en roept verder niets aan', async () => {
