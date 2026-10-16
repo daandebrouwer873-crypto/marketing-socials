@@ -68,12 +68,14 @@ export async function opslaan(rijen, { url, sleutel }) {
 }
 
 export async function draai(env = process.env, log = console.log, moment = new Date()) {
+  // Een niet ingesteld GitHub-geheim is een lege tekst; een geplakt geheim kan spaties of een witregel bevatten.
   const actief = BRONNEN.filter(b => env[b.token]);
   if (!actief.length) {
     log('Nog geen Meta-token ingesteld. Niets opgehaald.');
     return { rijen: [], fouten: [] };
   }
-  if (!env.SUPABASE_URL || !env.SUPABASE_SECRET_KEY) {
+  const sleutel = (env.SUPABASE_SECRET_KEY || '').trim();
+  if (!env.SUPABASE_URL || !sleutel) {
     return { rijen: [], fouten: ['SUPABASE_URL of SUPABASE_SECRET_KEY ontbreekt.'] };
   }
 
@@ -82,8 +84,13 @@ export async function draai(env = process.env, log = console.log, moment = new D
   const rijen = [];
   const fouten = [];
   for (const bron of actief) {
+    const token = env[bron.token].trim();
+    if (!token) {
+      fouten.push(`${bron.naam}: het geheim ${bron.token} is leeg (alleen spaties of een witregel). Plak het paginatoken opnieuw.`);
+      continue;
+    }
     try {
-      const { rijen: nieuw, missend } = metingenVoor(bron, await haalPagina(env[bron.token]), periodeStart);
+      const { rijen: nieuw, missend } = metingenVoor(bron, await haalPagina(token), periodeStart);
       for (const r of nieuw) log(`${bron.naam}: ${r.metric} = ${r.waarde}`);
       rijen.push(...nieuw);
       fouten.push(...missend);
@@ -94,7 +101,7 @@ export async function draai(env = process.env, log = console.log, moment = new D
 
   if (rijen.length) {
     try {
-      await opslaan(rijen, { url: env.SUPABASE_URL, sleutel: env.SUPABASE_SECRET_KEY });
+      await opslaan(rijen, { url: env.SUPABASE_URL, sleutel });
       log(`Week van ${periodeStart}: ${rijen.length} cijfers opgeslagen.`);
     } catch (e) {
       fouten.push(e.message);

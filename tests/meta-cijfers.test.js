@@ -94,6 +94,20 @@ test('ontbrekende Supabase-sleutel of geweigerde opslag is een fout', async () =
   assert.match(geweigerd.fouten[0], /Supabase weigert \(401\)/);
 });
 
+test('spaties en witregels rond geheimen tellen niet mee, een leeg geheim is een fout', async () => {
+  const goed = await draai(env({ META_TOKEN_PELLENS: ' token-pellens\n', SUPABASE_SECRET_KEY: 'sb_secret_test\n' }), log, WOENSDAG);
+  assert.deepEqual(goed.fouten, []);
+  assert.equal(goed.rijen.length, 2);
+  const opslaan = aanroepen.find(a => a.adres.includes('/rest/v1/'));
+  assert.equal(opslaan.opties.headers.apikey, 'sb_secret_test');
+
+  aanroepen = [];
+  const leeg = await draai(env({ META_TOKEN_PELLENS: ' \n' }), log, WOENSDAG);
+  assert.deepEqual(leeg.rijen, []);
+  assert.match(leeg.fouten[0], /META_TOKEN_PELLENS is leeg/);
+  assert.equal(aanroepen.length, 0, 'met een leeg token wordt Meta niet aangeroepen');
+});
+
 test('oude service_role-sleutel gaat ook als Bearer mee', async () => {
   await draai(env({ META_TOKEN_PELLENS: 'token-pellens', SUPABASE_SECRET_KEY: 'eyJoud' }), log, WOENSDAG);
   const opslaan = aanroepen.find(a => a.adres.includes('/rest/v1/'));
