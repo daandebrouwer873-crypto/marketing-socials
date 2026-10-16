@@ -36,9 +36,20 @@ export async function toegangstoken({ clientId, clientSecret, refreshToken }) {
   if (!antwoord.ok || !data.access_token) {
     const verlopen = data.error === 'invalid_grant'
       ? ' De Google-koppeling is verlopen of ingetrokken: maak een nieuw refresh token.' : '';
-    throw new Error(`Google-inlog weigert (${data.error || antwoord.status}).${verlopen}`);
+    const client = data.error === 'invalid_client' ? ` ${vormcontrole({ clientId, clientSecret, refreshToken })}` : '';
+    throw new Error(`Google-inlog weigert (${data.error || antwoord.status}).${verlopen}${client}`);
   }
   return data.access_token;
+}
+
+// Zegt alleen of een geheim de juiste vorm heeft (begin en lengte), nooit de waarde zelf.
+export function vormcontrole({ clientId, clientSecret, refreshToken }) {
+  const jaNee = v => (v ? 'ja' : 'NEE');
+  return [
+    `GBP_CLIENT_ID eindigt op .apps.googleusercontent.com: ${jaNee(clientId.endsWith('.apps.googleusercontent.com'))} (${clientId.length} tekens)`,
+    `GBP_CLIENT_SECRET begint met GOCSPX-: ${jaNee(clientSecret.startsWith('GOCSPX-'))} (${clientSecret.length} tekens, hoort 35)`,
+    `GBP_REFRESH_TOKEN begint met 1//: ${jaNee(refreshToken.startsWith('1//'))} (${refreshToken.length} tekens)`,
+  ].join('; ') + '.';
 }
 
 async function haal(adres, token) {

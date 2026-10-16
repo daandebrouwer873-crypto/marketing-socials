@@ -166,6 +166,16 @@ test('verlopen koppeling geeft een duidelijke fout en roept verder niets aan', a
   assert.equal(aanroepen.length, 1);
 });
 
+test('verkeerde client geeft een vormcontrole zonder de geheimen zelf', async () => {
+  tokenAntwoord = { status: 401, body: { error: 'invalid_client', error_description: 'Unauthorized' } };
+  const { fouten } = await draai(env({ GBP_CLIENT_SECRET: '1//verkeerd-geplakt' }), log, VANDAAG);
+  assert.match(fouten[0], /invalid_client/);
+  assert.match(fouten[0], /GBP_CLIENT_ID eindigt op \.apps\.googleusercontent\.com: ja/);
+  assert.match(fouten[0], /GBP_CLIENT_SECRET begint met GOCSPX-: NEE \(19 tekens, hoort 35\)/);
+  assert.match(fouten[0], /GBP_REFRESH_TOKEN begint met 1\/\/: ja/);
+  assert.ok(!fouten[0].includes('verkeerd-geplakt') && !fouten[0].includes('1//nep'), 'geen geheimen in de melding');
+});
+
 test('vast ingesteld profiel slaat het zoeken over', async () => {
   const profiel = await vindProfiel('ya29.nep', { GBP_LOCATIE: 'accounts/222/locations/7' });
   assert.deepEqual(profiel, { account: 'accounts/222', locatie: 'locations/7' });
