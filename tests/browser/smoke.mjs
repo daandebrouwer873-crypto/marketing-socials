@@ -297,6 +297,9 @@ try {
 
   await stap('van groot naar klein scherm: zijbalk weg, balk onderin terug', async () => {
     await groot.setViewportSize({ width: 390, height: 844 });
+    // De browser meldt de nieuwe breedte pas bij het volgende beeld. De css verbergt de zijbalk
+    // dan al, maar de app heeft hem nog niet leeggemaakt. Wacht tot render() geweest is.
+    await groot.locator('#zijbalk[hidden]').waitFor({ state: 'attached' });
     await groot.locator('#nav').waitFor();
     assert.ok(await groot.locator('#zijbalk').isHidden());
     assert.equal(await groot.locator('#zijbalk [data-actie]').count(), 0);
