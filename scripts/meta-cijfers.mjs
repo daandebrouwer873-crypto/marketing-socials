@@ -5,7 +5,7 @@
 import { pathToFileURL } from 'node:url';
 import { vandaag, maandagVan } from '../public/lib/logica.js';
 
-const GRAPH = 'https://graph.facebook.com/v25.0';
+const GRAPH = 'https://graph.facebook.com/v26.0';
 const VELDEN = 'name,followers_count,instagram_business_account{username,followers_count}';
 
 // Eén paginatoken per Facebook-pagina. Het Instagram-account dat aan die pagina hangt, komt mee.

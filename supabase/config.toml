@@ -1,0 +1,7 @@
+# Alleen voor de serverfunctie marketing-plaatsen. De database van het Pellens-project wordt niet
+# vanuit hier beheerd: migraties gaan met de hand via de SQL Editor (zie de README).
+project_id = "pellens-marketing"
+
+[functions.marketing-plaatsen]
+# De functie controleert de inlog zelf via de database; de nieuwe Supabase-sleutels zijn geen JWT.
+verify_jwt = false

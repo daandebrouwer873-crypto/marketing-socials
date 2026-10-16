@@ -133,6 +133,38 @@ Faalt de workflow (verlopen token, ander wachtwoord, beheerdersrol kwijt), dan m
 een nieuw paginatoken en vervang het geheim. GitHub zet geplande workflows uit als er 60 dagen niets
 in de repository verandert; aanzetten kan onder Actions met één klik.
 
+### 7. Plaatsen op Instagram en Facebook
+
+Een post met een goedgekeurde tekst zet Daan vanuit de app online: fotopost, carrousel, reel of story,
+op Instagram en de Facebook-pagina van Pellens. Dat doet de serverfunctie `marketing-plaatsen` in
+Supabase met hetzelfde paginatoken als stap 6. Het token staat alleen in de geheimen van GitHub en
+Supabase, nooit in de app.
+
+1. Open in Supabase de **SQL Editor** en voer `supabase/migrations/003_plaatsen.sql` uit.
+2. Maak in Supabase een toegangssleutel: klik rechtsboven op je account, **Access Tokens →
+   Generate new token**, bijvoorbeeld `github-plaatsen-functie`. Zet hem in GitHub onder
+   **Settings → Secrets and variables → Actions** als `SUPABASE_ACCESS_TOKEN`.
+3. Start de eerste keer zelf: **Actions → Plaatsen-functie → Run workflow**. Die zet de functie live en
+   geeft `META_TOKEN_PELLENS` door aan Supabase. Daarna gaat het vanzelf bij elke wijziging aan de
+   functie. **Vervang je een Meta-token, start hem dan opnieuw**, anders blijft Supabase het oude gebruiken.
+4. Kijk in Supabase onder **Storage → Settings** hoe groot een bestand mag zijn. Op het gratis plan is
+   dat 50 MB: genoeg voor foto's en een reel in 1080p, niet voor video in 4K.
+
+Zo werkt het in de app: open een post en kies bij **Wat gaat er online** de definitieve foto's of de
+video, in de goede volgorde. Mila kan dat ook doen. Foto's worden JPEG en staande foto's 4:5, zoals
+Instagram ze toont. Is de tekst goedgekeurd en de status Klaar of Ingepland, dan staat er voor Daan
+**Online zetten** met Instagram en Facebook aangevinkt. Na **Nu plaatsen** staat de post op Geplaatst,
+met een link naar Instagram en Facebook. Lukt een van de twee niet, dan blijft de andere staan en
+probeert de knop bij de volgende keer alleen wat nog mist.
+
+Meta en Supabase stellen grenzen: Instagram 100 posts per 24 uur, Facebook 30 reels per 24 uur; een
+reel op Facebook duurt maximaal 90 seconden (langer gaat alleen naar Instagram), een story maximaal
+60 seconden. De app zegt het vooraf als iets niet past.
+
+De Meta-app staat in ontwikkelmodus. Volgens Meta ziet dan alleen wie een rol op de app heeft wat de
+app op Facebook plaatst. Zie je een geplaatste Facebook-post niet vanaf een ander account, zet de
+Meta-app dan op **Live** (developers.facebook.com, bovenaan de app).
+
 ## Zelf iets veranderen
 
 - **Doelen:** in de app zelf, onder Doelen en dan Aanpassen (alleen de eigenaar).
@@ -159,4 +191,7 @@ npm run dev            # bouwt en serveert lokaal op http://localhost:4321
 - Alleen de eigenaar kan teksten goedkeuren. Een gewijzigde tekst moet opnieuw worden goedgekeurd.
 - De Google-sleutel staat alleen in Netlify, nooit in de code of in de browser. De browser krijgt
   per upload een eenmalig uploadadres.
+- Alleen de eigenaar plaatst op Instagram en Facebook, alleen met een goedgekeurde tekst, en nooit twee
+  keer tegelijk. Dat regelt de database. Het Meta-token staat alleen in GitHub en Supabase; Meta krijgt
+  per bestand een link die een uur werkt.
 - Zet nooit geheimen in deze repository.

@@ -10,6 +10,9 @@ const out = resolve(root, 'dist');
 await rm(out, { recursive: true, force: true });
 await mkdir(out, { recursive: true });
 await cp(resolve(root, 'public'), out, { recursive: true });
+// De regels voor Instagram en Facebook staan één keer in de repo, bij de serverfunctie.
+// De app gebruikt dezelfde, zodat de knop Plaatsen vooraf zegt wat Meta niet zou nemen.
+await cp(resolve(root, 'supabase/functions/marketing-plaatsen/regels.js'), resolve(out, 'lib/plaatsregels.js'));
 
 const supabaseUrl = process.env.SUPABASE_URL || '';
 // Dezelfde publieke sleutel als de team-app en Rails (heet daar SUPABASE_PUBLISHABLE_KEY).

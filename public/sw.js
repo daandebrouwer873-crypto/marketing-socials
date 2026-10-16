@@ -4,6 +4,7 @@ const SCHIL = [
   './', 'index.html', 'app.css', 'app.js', 'config.js', 'manifest.json',
   'thema.js', 'thema-start.js',
   'lib/logica.js', 'lib/plan.js', 'lib/opslag.js', 'lib/upload.js', 'lib/spraak.js', 'lib/effecten.js', 'lib/onderwerpen.js', 'lib/iconen.js', 'lib/grafiek.js',
+  'lib/plaatsmedia.js', 'lib/plaatsregels.js',
   'icons/icon-192.png', 'icons/monogram.svg',
 ];
 

@@ -212,9 +212,24 @@ try {
     await page.goto(`${basis}?demo#posts`);
     await page.locator('.post', { hasText: 'Testpost' }).click();
     assert.equal(await page.locator('button[value="goedkeuren"]').count(), 0);
+    assert.equal(await page.locator('[data-actie="plaatsen"]').count(), 0, 'alleen Daan plaatst');
     await page.locator('button[value="ingepland"]').click();
     await page.locator('.paneel').waitFor({ state: 'detached' });
     assert.match(await page.locator('.post', { hasText: 'Testpost' }).innerText(), /Ingepland/);
+  });
+
+  await stap('Daan zet een reel klaar en plaatst hem', async () => {
+    await page.goto(`${basis}?demo#meer`);
+    await page.locator('[data-actie="demo-als"][data-email="daan@demo"]').click();
+    await page.goto(`${basis}?demo#posts`);
+    await page.locator('.post', { hasText: 'Testpost' }).click();
+    assert.ok(await page.locator('[data-actie="plaatsen"]').isDisabled(), 'zonder beeld kan het niet');
+    await page.locator('[data-input="plaatsmedia"]').setInputFiles({ name: 'reel.mp4', mimeType: 'video/mp4', buffer: Buffer.alloc(4000) });
+    await page.locator('.online-tegel').waitFor();
+    await foto('plaatsen');
+    await page.locator('[data-actie="plaatsen"]').click();
+    await page.locator('.paneel').waitFor({ state: 'detached', timeout: 15_000 });
+    assert.match(await page.locator('.post', { hasText: 'Testpost' }).innerText(), /Geplaatst/);
   });
 
   await stap('Beau ziet de eigen routines', async () => {

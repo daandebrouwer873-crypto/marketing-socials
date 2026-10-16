@@ -401,6 +401,30 @@ audio { width: 100%; margin-top: 8px; height: 40px; }
 .voorbeeld .balk i { display: block; height: 100%; background: var(--goud); transition: width 0.2s ease; }
 .voorbeeld.klaar::after { content: ''; position: absolute; inset: 0; background: color-mix(in srgb, var(--bg) 55%, transparent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='34' height='34' viewBox='0 0 24 24' fill='none' stroke='%23d9c3a1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12.5 4.5 4.5L19 7.5'/%3E%3C/svg%3E") center no-repeat; }
 .voorbeeld.fout::after { content: '!'; position: absolute; inset: 0; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 60%, transparent); color: var(--rood); font-size: 30px; font-family: var(--serif); }
+/* ---- Wat er online gaat en de knop Plaatsen ---- */
+
+.online-blok { margin-top: 18px; }
+.online-blok .voorbeelden { margin: 0 0 10px; align-items: start; }
+.online-tegel .volgnr, .online-tegel .duur {
+  position: absolute; bottom: 6px; padding: 2px 7px; border-radius: 999px;
+  background: rgba(20, 26, 36, 0.7); color: #e8e3be; font-size: 12px; font-weight: 600;
+}
+.online-tegel .volgnr { left: 6px; }
+.online-tegel .duur { right: 6px; }
+.kies-media { cursor: pointer; margin-bottom: 8px; }
+.online-laden { margin: 4px 0 12px; font-size: 13px; color: var(--stil); overflow-wrap: anywhere; }
+.online-laden .balk-groot { margin: 8px 0 0; }
+.plaats-blok { margin: 6px 0 4px; padding: 16px; border-radius: 16px; border: 1px solid color-mix(in srgb, var(--goud) 60%, transparent); }
+.plaats-blok h3 { font-size: 20px; font-weight: 450; margin-bottom: 4px; }
+.plaats-blok .keuze { margin: 12px 0; }
+.plaats-blok > .mini { margin-bottom: 8px; }
+.plaats-blok .knop { margin-top: 6px; }
+.chip.vast { color: var(--salie); border-color: currentColor; }
+.plaats-let { margin: 4px 0 10px 18px; color: var(--sintel); font-size: 14px; line-height: 1.5; }
+.plaats-links { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 4px; }
+.plaats-stand { margin-top: 8px; }
+.plaats-stand:empty { display: none; }
+
 .stickers { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin: 12px 0 18px; }
 .sticker {
   display: flex; align-items: center; gap: 10px; padding: 13px 14px; border-radius: 14px; text-align: left;

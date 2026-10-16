@@ -229,7 +229,115 @@ select pg_temp.als('frits@test.nl');
 select pg_temp.zeker((select count(*) = 0 from public.marketing_teamleden), 'Frits staat niet op de marketinglijst');
 rollback;
 
--- 12. De startgegevens koppelen precies Daan, Mila en Beau, in kleine letters.
+-- 12. Plaatsen: alleen de eigenaar, alleen een goedgekeurde tekst, en nooit twee keer.
+begin;
+select pg_temp.als('mila@test.nl');
+insert into public.marketing_posts (id, datum, kanaal, idee, media)
+values ('00000000-0000-0000-0000-000000000002', '2026-10-20', 'foto', 'Het eerste bord',
+        '[{"pad": "00000000-0000-0000-0000-000000000002/1.jpg", "soort": "foto"}]');
+select pg_temp.zeker(
+  (select jsonb_array_length(media) = 1 and ig_media_id is null
+   from public.marketing_posts where id = '00000000-0000-0000-0000-000000000002'),
+  'Mila zet de foto klaar');
+select pg_temp.verwacht_fout(
+  $q$update public.marketing_posts set ig_media_id = '1789' where id = '00000000-0000-0000-0000-000000000002'$q$,
+  'alleen de knop Plaatsen');
+select pg_temp.verwacht_fout(
+  $q$insert into public.marketing_posts (datum, kanaal, idee, fb_post_id) values ('2026-10-20', 'foto', 'x', '168_1')$q$,
+  'alleen de knop Plaatsen');
+select pg_temp.verwacht_fout(
+  $q$select public.marketing_plaatsen_pak('00000000-0000-0000-0000-000000000002', array['instagram'])$q$,
+  'Alleen de eigenaar');
+update public.marketing_posts set tekst = 'Uitgetypt van Daans memo' where id = '00000000-0000-0000-0000-000000000002';
+
+select pg_temp.als('daan@test.nl');
+select pg_temp.verwacht_fout(
+  $q$select public.marketing_plaatsen_pak('00000000-0000-0000-0000-000000000002', array['instagram'])$q$,
+  'nog niet goedgekeurd');
+update public.marketing_posts set tekst_goedgekeurd = true where id = '00000000-0000-0000-0000-000000000002';
+select pg_temp.verwacht_fout(
+  $q$select public.marketing_plaatsen_pak('00000000-0000-0000-0000-000000000002', array['tiktok'])$q$,
+  'Kies Instagram');
+select pg_temp.verwacht_fout(
+  $q$select public.marketing_plaatsen_pak('00000000-0000-0000-0000-000000000002', array[]::text[])$q$,
+  'Kies Instagram');
+select pg_temp.zeker(
+  (select plaatsen_bezig_sinds is not null and plaatsen_stand -> 'kanalen' = '["instagram", "facebook"]'::jsonb
+   from public.marketing_plaatsen_pak('00000000-0000-0000-0000-000000000002', array['instagram', 'facebook'])),
+  'de eigenaar pakt een goedgekeurde post');
+select pg_temp.verwacht_fout(
+  $q$select public.marketing_plaatsen_pak('00000000-0000-0000-0000-000000000002', array['instagram'])$q$,
+  'op dit moment al geplaatst');
+select pg_temp.verwacht_fout(
+  $q$update public.marketing_posts set fb_post_id = '168_1' where id = '00000000-0000-0000-0000-000000000002'$q$,
+  'alleen de knop Plaatsen');
+
+-- Instagram lukt, Facebook niet: het Instagram-id blijft, het slot gaat los, de fout staat erbij.
+select public.marketing_plaatsen_bewaar('00000000-0000-0000-0000-000000000002',
+  p_stand => '{"kanalen": ["instagram", "facebook"], "instagram": {"container": "c1"}}',
+  p_ig_media_id => '1789', p_ig_link => 'https://www.instagram.com/p/abc/',
+  p_fout => 'Facebook: Meta weigert.', p_loslaten => true);
+select pg_temp.zeker(
+  (select ig_media_id = '1789' and ig_link = 'https://www.instagram.com/p/abc/' and plaatsen_bezig_sinds is null
+      and plaatsen_fout = 'Facebook: Meta weigert.' and status = 'tekst_klaar' and plaatsen_stand -> 'instagram' ->> 'container' = 'c1'
+   from public.marketing_posts where id = '00000000-0000-0000-0000-000000000002'),
+  'Instagram bewaard, slot los, fout zichtbaar');
+select pg_temp.verwacht_fout(
+  $q$select public.marketing_plaatsen_bewaar('00000000-0000-0000-0000-000000000002', p_fout => 'x')$q$,
+  'niet aan het plaatsen');
+
+-- Opnieuw: alleen Facebook. Een bewaard id wordt nooit overschreven.
+select public.marketing_plaatsen_pak('00000000-0000-0000-0000-000000000002', array['facebook']);
+select pg_temp.zeker(
+  (select plaatsen_fout is null and plaatsen_stand -> 'instagram' ->> 'container' = 'c1'
+   from public.marketing_posts where id = '00000000-0000-0000-0000-000000000002'),
+  'opnieuw pakken wist de fout en houdt de stand');
+select public.marketing_plaatsen_bewaar('00000000-0000-0000-0000-000000000002',
+  p_ig_media_id => 'ander', p_fb_post_id => '168_99', p_klaar => true);
+select pg_temp.zeker(
+  (select ig_media_id = '1789' and fb_post_id = '168_99' and status = 'geplaatst' and geplaatst_door = 'daan@test.nl'
+      and geplaatst_op is not null and plaatsen_bezig_sinds is null and plaatsen_fout is null
+   from public.marketing_posts where id = '00000000-0000-0000-0000-000000000002'),
+  'geplaatst, met beide ids en wie het deed');
+select pg_temp.verwacht_fout(
+  $q$select public.marketing_plaatsen_pak('00000000-0000-0000-0000-000000000002', array['instagram'])$q$,
+  'staat al online');
+
+-- Een kanaal dat de app niet zelf plaatst, of een post zonder beeld, kan niet.
+insert into public.marketing_posts (id, datum, kanaal, idee, tekst, tekst_goedgekeurd)
+values ('00000000-0000-0000-0000-000000000003', '2026-10-21', 'google', 'Lunch op Google', 'Vrijdag weer lunch.', true);
+select pg_temp.verwacht_fout(
+  $q$select public.marketing_plaatsen_pak('00000000-0000-0000-0000-000000000003', array['facebook'])$q$,
+  'niet zelf');
+update public.marketing_posts set kanaal = 'reel' where id = '00000000-0000-0000-0000-000000000003';
+select pg_temp.verwacht_fout(
+  $q$select public.marketing_plaatsen_pak('00000000-0000-0000-0000-000000000003', array['instagram'])$q$,
+  'Zet eerst');
+select pg_temp.verwacht_fout(
+  $q$update public.marketing_posts set media = (select jsonb_agg(jsonb_build_object('pad', g)) from generate_series(1, 11) g)
+     where id = '00000000-0000-0000-0000-000000000003'$q$,
+  'media_check');
+rollback;
+
+-- 13. Opslag voor wat er online gaat: alleen teamleden.
+begin;
+select pg_temp.als('mila@test.nl');
+insert into storage.objects (bucket_id, name) values ('marketing-plaatsen', 'post/1.jpg');
+select pg_temp.als('vreemde@example.com');
+select pg_temp.verwacht_fout(
+  $q$insert into storage.objects (bucket_id, name) values ('marketing-plaatsen', 'x.jpg')$q$,
+  'row-level security');
+select pg_temp.zeker((select count(*) = 0 from storage.objects), 'buitenstaander ziet geen beelden');
+rollback;
+
+begin;
+set local role anon;
+select pg_temp.verwacht_fout(
+  $q$select public.marketing_plaatsen_pak('00000000-0000-0000-0000-000000000002', array['instagram'])$q$,
+  'permission denied');
+rollback;
+
+-- 14. De startgegevens koppelen precies Daan, Mila en Beau, in kleine letters.
 select pg_temp.zeker(
   (select string_agg(email || ':' || rol, ',' order by email) from public.marketing_teamleden)
     = 'beau@test.nl:manager,daan@test.nl:eigenaar,mila@test.nl:social',

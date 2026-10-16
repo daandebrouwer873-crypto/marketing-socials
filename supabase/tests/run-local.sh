@@ -32,8 +32,10 @@ psql_run() {
 psql_run -f "$root/supabase/tests/stub_supabase.sql"
 psql_run -f "$root/supabase/migrations/001_marketing_app.sql"
 psql_run -f "$root/supabase/migrations/002_spraakmemos.sql"
+psql_run -f "$root/supabase/migrations/003_plaatsen.sql"
 psql_run -o /dev/null -f "$root/supabase/seed.sql"
 # Migraties moeten twee keer achter elkaar kunnen draaien.
 psql_run -f "$root/supabase/migrations/001_marketing_app.sql"
 psql_run -f "$root/supabase/migrations/002_spraakmemos.sql"
+psql_run -f "$root/supabase/migrations/003_plaatsen.sql"
 psql_run -o /dev/null -f "$root/supabase/tests/rls_test.sql"

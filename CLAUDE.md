@@ -39,6 +39,13 @@ van oktober 2026 tot en met maart 2027. Live op https://daandebrouwer873-crypto.
 - `scripts/meta-cijfers.mjs`: haalt elke ochtend de volgers op bij Meta (GitHub Actions,
   `.github/workflows/meta-cijfers.yml`) en schrijft ze met de secret key in `marketing_metingen`.
   Zulke rijen hebben een lege `ingevuld_door`; daaraan ziet de app "via Meta".
+- `supabase/functions/marketing-plaatsen/`: de knop Plaatsen (Instagram en Facebook, Graph API v26.0).
+  Supabase Edge Function met de inlog van de eigenaar; de regels staan in de database (migratie 003).
+  `index.ts` start alleen `plaatsen.js`; alles is gewone JavaScript en getest met nep-Meta in
+  `tests/meta-plaatsen.test.js`. Live zetten gaat vanzelf via `.github/workflows/plaatsen-functie.yml`.
+- `supabase/functions/marketing-plaatsen/regels.js`: wat Meta per soort post neemt. De build kopieert
+  hem naar `dist/lib/plaatsregels.js`, zodat de app dezelfde regels gebruikt. In `public/lib/` staat hij
+  dus niet. `public/lib/plaatsmedia.js` zet foto's om naar JPEG en snijdt ze bij.
 
 ## Database
 

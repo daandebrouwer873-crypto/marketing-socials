@@ -1,0 +1,87 @@
+# Zet de serverfunctie marketing-plaatsen live in Supabase na elke wijziging eraan op main,
+# en geeft het Meta-token uit de GitHub-geheimen door aan Supabase. Zie de README, stap 7.
+# Zonder SUPABASE_ACCESS_TOKEN doet hij niets. Faalt hij, dan stuurt GitHub Daan een mail.
+name: Plaatsen-functie
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/functions/**'
+      - 'supabase/config.toml'
+      - '.github/workflows/plaatsen-functie.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: plaatsen-functie
+  cancel-in-progress: false
+
+env:
+  PROJECT_REF: xxgysjjnvnbwlnicmxnj
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Is er een Supabase-sleutel?
+        id: sleutel
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          if [ -z "$(printf '%s' "$SUPABASE_ACCESS_TOKEN" | tr -d '[:space:]')" ]; then
+            echo "::warning::Nog geen SUPABASE_ACCESS_TOKEN ingesteld. De functie is niet live gezet."
+            echo "aanwezig=nee" >> "$GITHUB_OUTPUT"
+          else
+            echo "aanwezig=ja" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.sleutel.outputs.aanwezig == 'ja'
+
+      - uses: actions/setup-node@v4
+        if: steps.sleutel.outputs.aanwezig == 'ja'
+        with:
+          node-version: 22
+
+      - name: Tests
+        if: steps.sleutel.outputs.aanwezig == 'ja'
+        run: npm test
+
+      - uses: supabase/setup-cli@v1
+        if: steps.sleutel.outputs.aanwezig == 'ja'
+        with:
+          version: latest
+
+      # Het token gaat via een tijdelijk bestand, zodat het nergens in de uitvoer of in een commando staat.
+      - name: Meta-tokens doorgeven aan Supabase
+        if: steps.sleutel.outputs.aanwezig == 'ja'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          META_TOKEN_PELLENS: ${{ secrets.META_TOKEN_PELLENS }}
+          META_TOKEN_BROUWERIJ: ${{ secrets.META_TOKEN_BROUWERIJ }}
+        run: |
+          export SUPABASE_ACCESS_TOKEN="$(printf '%s' "$SUPABASE_ACCESS_TOKEN" | tr -d '[:space:]')"
+          bestand="$RUNNER_TEMP/meta.env"
+          : > "$bestand"
+          chmod 600 "$bestand"
+          for naam in META_TOKEN_PELLENS META_TOKEN_BROUWERIJ; do
+            waarde="$(printf '%s' "${!naam}" | tr -d '[:space:]')"
+            if [ -n "$waarde" ]; then printf '%s=%s\n' "$naam" "$waarde" >> "$bestand"; fi
+          done
+          if [ -s "$bestand" ]; then
+            supabase secrets set --project-ref "$PROJECT_REF" --env-file "$bestand"
+          else
+            echo "::warning::Geen Meta-token in de GitHub-geheimen. Plaatsen werkt pas als META_TOKEN_PELLENS er staat."
+          fi
+          rm -f "$bestand"
+
+      - name: Functie live zetten
+        if: steps.sleutel.outputs.aanwezig == 'ja'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          export SUPABASE_ACCESS_TOKEN="$(printf '%s' "$SUPABASE_ACCESS_TOKEN" | tr -d '[:space:]')"
+          supabase functions deploy marketing-plaatsen --project-ref "$PROJECT_REF" --no-verify-jwt --use-api
