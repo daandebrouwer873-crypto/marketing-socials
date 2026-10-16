@@ -125,6 +125,7 @@ export const METRICS = Object.freeze([
   { key: 'gasten_lunch', label: 'Gasten per lunch (gemiddeld)', periode: 'week', rol: 'manager', decimalen: 1 },
   { key: 'ig_volgers_pellens', label: 'Instagram-volgers Pellens', periode: 'week', rol: 'social' },
   { key: 'ig_volgers_brouwerij', label: 'Instagram-volgers Brouwerij', periode: 'week', rol: 'social' },
+  { key: 'fb_volgers_pellens', label: 'Facebook-volgers Pellens', periode: 'week', rol: 'social' },
 
   { key: 'ig_linkklikken', label: 'Klikken op de link in bio', periode: 'maand', rol: 'social' },
   { key: 'gbp_weergaven', label: 'Google-profiel: weergaven', periode: 'maand', rol: 'social' },

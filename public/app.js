@@ -658,8 +658,11 @@ function metingVelden(soort, periode) {
   return METRICS.filter(m => m.periode === soort).map(m => {
     const bestaand = S.metingen.find(x => x.metric === m.key && x.periode_start === periode);
     const waarden = reeks(S.metingen, m.key).map(x => Number(x.waarde));
+    // Rijen van scripts/meta-cijfers.mjs hebben geen e-mail; vanuit de app vult de database die altijd in.
+    const vanzelf = bestaand && !bestaand.ingevuld_door;
+    const label = vanzelf ? '<span class="jij">via Meta</span>' : m.rol === S.lid.rol ? '<span class="jij">jij</span>' : '';
     return `<div class="meting">
-      <label for="m-${m.key}"><span class="naam">${esc(m.label)}</span>${m.rol === S.lid.rol ? '<span class="jij">jij</span>' : ''}${vonk(waarden)}</label>
+      <label for="m-${m.key}"><span class="naam">${esc(m.label)}</span>${label}${vonk(waarden)}</label>
       <input id="m-${m.key}" type="number" inputmode="decimal" step="any" min="0" name="${m.key}" value="${bestaand ? Number(bestaand.waarde) : ''}" placeholder="–">
     </div>`;
   }).join('');

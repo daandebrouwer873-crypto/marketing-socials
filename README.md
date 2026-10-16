@@ -104,6 +104,35 @@ De site `pellens-marketing` staat al in het Netlify-team van Pellens, met `SUPAB
 Open het adres in Safari of Chrome en kies **Deel → Zet op beginscherm**. De app opent dan
 schermvullend, met een eigen icoon.
 
+### 6. Volgers vanzelf ophalen bij Meta
+
+Elke ochtend om 05:15 (UTC) haalt `.github/workflows/meta-cijfers.yml` de volgers op bij Meta en
+zet ze bij Cijfers als cijfer van deze week: Instagram Pellens, Facebook Pellens en Instagram
+Brouwerij. In de app staat dan "via Meta" bij het cijfer. Met de hand invullen blijft mogelijk.
+Zonder token doet de workflow niets.
+
+1. Maak op [developers.facebook.com](https://developers.facebook.com) een app van het type
+   **Business**, gekoppeld aan het bedrijfsportfolio van Pellens. De app blijft in ontwikkelmodus;
+   app review is niet nodig, want hij leest alleen de eigen pagina's van de beheerder.
+2. In de [Graph API Explorer](https://developers.facebook.com/tools/explorer): kies de app, vraag een
+   gebruikerstoken met `pages_show_list`, `pages_read_engagement`, `instagram_basic` en
+   `business_management`, verleng hem in de Access Token Tool en vraag daarna
+   `me/accounts?fields=name,access_token,instagram_business_account` op. Het `access_token` per
+   pagina is een paginatoken dat niet verloopt.
+3. Zet in GitHub onder **Settings → Secrets and variables → Actions** deze geheimen:
+
+   | Naam | Waarde |
+   | --- | --- |
+   | `META_TOKEN_PELLENS` | Paginatoken van de Facebook-pagina Pellens |
+   | `META_TOKEN_BROUWERIJ` | Paginatoken van de pagina waar het Brouwerij-Instagram aan hangt (mag later) |
+   | `SUPABASE_SECRET_KEY` | Een eigen secret key uit Supabase (**Project Settings → API Keys**), bijvoorbeeld `github-meta-cijfers` |
+
+4. Start de eerste keer zelf: **Actions → Meta-cijfers → Run workflow**.
+
+Faalt de workflow (verlopen token, ander wachtwoord, beheerdersrol kwijt), dan mailt GitHub. Maak dan
+een nieuw paginatoken en vervang het geheim. GitHub zet geplande workflows uit als er 60 dagen niets
+in de repository verandert; aanzetten kan onder Actions met één klik.
+
 ## Zelf iets veranderen
 
 - **Doelen:** in de app zelf, onder Doelen en dan Aanpassen (alleen de eigenaar).

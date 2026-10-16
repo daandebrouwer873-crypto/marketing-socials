@@ -1,0 +1,30 @@
+# Haalt elke ochtend de volgers op bij Meta (Instagram en Facebook) en zet ze in de app.
+# De tokens staan onder Settings > Secrets and variables > Actions; zie de README, stap 6.
+# Zonder token doet hij niets. Faalt hij, dan stuurt GitHub Daan een mail.
+name: Meta-cijfers
+
+on:
+  schedule:
+    - cron: '15 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ophalen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Volgers ophalen en opslaan
+        run: node scripts/meta-cijfers.mjs
+        env:
+          SUPABASE_URL: https://xxgysjjnvnbwlnicmxnj.supabase.co
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          META_TOKEN_PELLENS: ${{ secrets.META_TOKEN_PELLENS }}
+          META_TOKEN_BROUWERIJ: ${{ secrets.META_TOKEN_BROUWERIJ }}

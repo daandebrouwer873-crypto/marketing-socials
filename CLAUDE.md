@@ -36,6 +36,9 @@ van oktober 2026 tot en met maart 2027. Live op https://daandebrouwer873-crypto.
   Verander je de vorm van de demogegevens, verhoog dan `DEMO_SLEUTEL`.
 - `netlify/functions/drive-upload.js`: direct uploaden naar Google Drive. Werkt alleen op Netlify;
   op GitHub Pages opent de app de juiste map in Drive.
+- `scripts/meta-cijfers.mjs`: haalt elke ochtend de volgers op bij Meta (GitHub Actions,
+  `.github/workflows/meta-cijfers.yml`) en schrijft ze met de secret key in `marketing_metingen`.
+  Zulke rijen hebben een lege `ingevuld_door`; daaraan ziet de app "via Meta".
 
 ## Database
 
