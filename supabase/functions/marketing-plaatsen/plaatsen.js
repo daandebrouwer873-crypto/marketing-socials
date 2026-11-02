@@ -22,6 +22,7 @@ const zin = tekst => (/[.!?]$/.test(tekst) ? tekst : `${tekst}.`);
 // Per merk het GitHub-geheim met het paginatoken, en of er een eigen Facebook-pagina is.
 export const MERKEN = Object.freeze({
   pellens: { naam: 'Pellens', token: 'META_TOKEN_PELLENS', facebook: true },
+  barbrioche: { naam: 'Bar Brioche', token: 'META_TOKEN_BARBRIOCHE', facebook: false },
   brouwerij: { naam: 'Brouwerij de Brouwer', token: 'META_TOKEN_BROUWERIJ', facebook: false },
 });
 

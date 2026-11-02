@@ -11,5 +11,6 @@ export const VASTE_MAPPEN = Object.freeze(
 
 export const MAPPEN_OP_NAAM = Object.freeze({
   nieuw: 'Nieuw - te sorteren',
+  barbrioche: 'Bar Brioche',
   brouwerij: 'Brouwerij de Brouwer',
 });

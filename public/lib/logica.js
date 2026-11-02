@@ -1,5 +1,5 @@
 // Pure rekenregels van de app: datums, weken, de drie-takenregel, routines, streaks en voortgang.
-import { MAANDEN, ROUTINES, PLAN_START, PLAN_DECEMBER, PLAN_EIND } from './plan.js';
+import { MAANDEN, ROUTINES, PLAN_START, PLAN_DECEMBER, PLAN_EIND, WEKEN, MINIMUM, MERKEN } from './plan.js';
 
 const DAG = 864e5;
 const DAGEN = ['zo', 'ma', 'di', 'wo', 'do', 'vr', 'za'];
@@ -109,7 +109,7 @@ export function context(datum) {
 
 export function routinesVoor(rol, datum) {
   const c = context(datum);
-  return ROUTINES.filter(r => r.rollen.includes(rol) && r.wanneer(c));
+  return ROUTINES.filter(r => r.rollen.includes(rol) && (!r.vanaf || datum >= r.vanaf) && (!r.tot || datum <= r.tot) && r.wanneer(c));
 }
 
 // checks: lijst van { datum, routine } van één persoon.
@@ -141,15 +141,52 @@ export function streak(checks, rol, tot, maxDagen = 366) {
 
 // ---- Posts ----
 
+// Nog niet goedgekeurd: er is nog geen tekst, of er is een tekst die op Daan wacht.
 export function postsTekstNodig(posts) {
   return posts.filter(p => !p.tekst_goedgekeurd && ['idee', 'tekst_nodig'].includes(p.status));
 }
 
+const heeftTekst = p => String(p.tekst || '').trim() !== '';
+
+// Daan of Mila moet de tekst nog schrijven.
+export function postsZonderTekst(posts) {
+  return postsTekstNodig(posts).filter(p => !heeftTekst(p));
+}
+
+// Er staat een tekst klaar die Daan nog moet goedkeuren.
+export function postsWachtOpGoedkeuring(posts) {
+  return postsTekstNodig(posts).filter(heeftTekst);
+}
+
 export function filterPosts(posts, { status = 'alles', merk = 'alles' } = {}) {
+  const passend = {
+    tekst_nodig: p => postsZonderTekst([p]).length > 0,
+    goedkeuren: p => postsWachtOpGoedkeuring([p]).length > 0,
+  };
   return posts.filter(p =>
     (merk === 'alles' || p.merk === merk) &&
-    (status === 'alles' || (status === 'tekst_nodig' ? postsTekstNodig([p]).length > 0 : p.status === status)),
+    (status === 'alles' || (passend[status] ? passend[status](p) : p.status === status)),
   );
+}
+
+// Wat er deze week minimaal online moet per zaak, en hoeveel er al gepland staat.
+// Brouwerij-posts tellen mee voor Bar Brioche.
+export function weekMinimum(posts, maandag) {
+  const zondag = plusDagen(maandag, 6);
+  const inWeek = posts.filter(p => p.datum >= maandag && p.datum <= zondag);
+  return MINIMUM
+    .filter(m => maandag >= (m.vanaf || WEKEN[0].maandag))
+    .map(m => ({
+      ...m,
+      aantal: (m.weken && m.weken[maandag]) || m.aantal,
+      gepland: inWeek.filter(p => (MERKEN[p.merk] || MERKEN.pellens).zaak === m.zaak && m.kanalen.includes(p.kanaal)).length,
+    }));
+}
+
+// De week uit het plan tot januari waar deze datum in valt.
+export function weekVanPlan(datum) {
+  const maandag = maandagVan(datum);
+  return WEKEN.find(w => w.maandag === maandag) || null;
 }
 
 // ---- Metingen en doelen ----
@@ -167,12 +204,24 @@ export function reeks(metingen, metric, aantal = 8) {
     .slice(-aantal);
 }
 
+// Het einddoel: maart, of december als er voor maart (nog) niets is.
+export function einddoel(doel) {
+  return doel.doel_maart ?? doel.doel_december ?? null;
+}
+
+// Zonder startwaarde telt de eerste meting als start (de nulmeting).
+export function metStart(doel, metingen) {
+  if (doel.start_waarde != null) return doel;
+  const eerste = reeks(metingen, doel.metric, 1e6)[0];
+  return eerste ? { ...doel, start_waarde: Number(eerste.waarde) } : doel;
+}
+
 export function voortgang(doel, huidig) {
   const start = doel.start_waarde;
-  const eind = doel.doel_maart;
+  const eind = einddoel(doel);
   if (start == null || eind == null || huidig == null || eind === start) return null;
   const deel = (huidig - start) / (eind - start);
-  const tussen = doel.doel_december == null ? null : (doel.doel_december - start) / (eind - start);
+  const tussen = doel.doel_december == null || doel.doel_maart == null ? null : (doel.doel_december - start) / (eind - start);
   return {
     procent: Math.max(0, Math.min(1, deel)),
     tussenstap: tussen == null ? null : Math.max(0, Math.min(1, tussen)),
@@ -182,27 +231,35 @@ export function voortgang(doel, huidig) {
 }
 
 // Waar je volgens het plan nu zou moeten staan: rechte lijn van de start naar het
-// decemberdoel, en daarna naar het doel van maart.
-export function verwachtOpDatum(doel, datum) {
+// decemberdoel, en daarna naar het doel van maart. Een cijfer kan een eigen begin en
+// einde van de lijn naar december hebben (doelVan en doelTot in plan.js).
+export function verwachtOpDatum(doel, datum, { doelVan = PLAN_START, doelTot = PLAN_DECEMBER } = {}) {
   const { start_waarde: start, doel_december: dec, doel_maart: maart } = doel;
-  if (start == null || maart == null) return null;
-  const punten = [[PLAN_START, start], ...(dec == null ? [] : [[PLAN_DECEMBER, dec]]), [PLAN_EIND, maart]];
+  if (start == null || einddoel(doel) == null) return null;
+  const punten = [[doelVan, start], ...(dec == null ? [] : [[doelTot, dec]]), ...(maart == null ? [] : [[PLAN_EIND, maart]])];
   if (datum <= punten[0][0]) return start;
   for (let i = 1; i < punten.length; i += 1) {
     const [d0, w0] = punten[i - 1];
     const [d1, w1] = punten[i];
     if (datum <= d1) return w0 + ((utc(datum) - utc(d0)) / (utc(d1) - utc(d0))) * (w1 - w0);
   }
-  return maart;
+  return punten.at(-1)[1];
 }
 
 // Voor, op of achter op schema, met een marge van 5 procent van de hele afstand.
-export function opSchema(doel, huidig, datum) {
-  const verwacht = verwachtOpDatum(doel, datum);
-  if (verwacht == null || huidig == null || doel.doel_maart === doel.start_waarde) return null;
-  const afstand = (huidig - verwacht) / (doel.doel_maart - doel.start_waarde);
+export function opSchema(doel, huidig, datum, lijn = {}) {
+  const verwacht = verwachtOpDatum(doel, datum, lijn);
+  const eind = einddoel(doel);
+  if (verwacht == null || huidig == null || eind === doel.start_waarde) return null;
+  const afstand = (huidig - verwacht) / (eind - doel.start_waarde);
   const status = afstand >= 0.05 ? 'voor' : afstand >= -0.05 ? 'op' : 'achter';
-  return { verwacht, status, verwachtDeel: (verwacht - doel.start_waarde) / (doel.doel_maart - doel.start_waarde) };
+  return { verwacht, status, verwachtDeel: (verwacht - doel.start_waarde) / (eind - doel.start_waarde) };
+}
+
+// Of een cijfer in deze periode wordt ingevuld (vanaf en tot in plan.js).
+export function metricActief(m, periode) {
+  const laatsteDag = m.periode === 'week' ? plusDagen(periode, 6) : plusDagen(maandStart(plusDagen(periode, 32)), -1);
+  return (!m.vanaf || laatsteDag >= m.vanaf) && (!m.tot || periode <= m.tot);
 }
 
 // Laatste en voorlaatste meting, voor een tegel met verschil.

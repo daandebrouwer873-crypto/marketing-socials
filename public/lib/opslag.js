@@ -254,7 +254,7 @@ class SupabaseOpslag {
 // ---------------------------------------------------------------------------
 // Demo: voorbeeldgegevens in localStorage, geen server nodig.
 
-const DEMO_SLEUTEL = 'pellens-marketing-demo-v3';
+const DEMO_SLEUTEL = 'pellens-marketing-demo-v4';
 const DEMO_TEAM = [
   { email: 'daan@demo', naam: 'Daan', rol: 'eigenaar' },
   { email: 'mila@demo', naam: 'Mila', rol: 'social' },
@@ -303,7 +303,7 @@ function demoStart() {
   return {
     taken: [
       { id: uuid(), titel: 'Nulmeting: volgers, reviews en Google-profiel', eigenaar: 'mila@demo', minimumversie: 'Alleen de volgers en het aantal reviews', klaar_wanneer: 'De stand van 1 oktober staat in de app', week_start: ma, status: 'open', created_at: t },
-      { id: uuid(), titel: 'Lunch Les Brioches op Google en Instagram', eigenaar: 'daan@demo', minimumversie: 'Openingstijden lunch op Google', klaar_wanneer: 'Lunch staat op Google, in de bio en op de site', week_start: ma, status: 'open', created_at: t },
+      { id: uuid(), titel: 'Persbericht 1 Bar Brioche versturen', eigenaar: 'daan@demo', minimumversie: 'Naar de vijf belangrijkste adressen uit de medialijst', klaar_wanneer: 'Verstuurd, met 3 tot 5 foto\'s', week_start: ma, status: 'open', created_at: t },
       { id: uuid(), titel: 'Reviewkaartjes bij de koffie', eigenaar: 'beau@demo', minimumversie: 'Kaartjes liggen klaar bij de pas', klaar_wanneer: 'Beau en Frits weten wanneer wel en niet', week_start: vorige, status: 'af', afgerond_op: t, created_at: t },
     ],
     posts: [
@@ -314,7 +314,12 @@ function demoStart() {
       post(-9, { kanaal: 'carrousel', thema: 'mensen', idee: 'Het team achter de pas: Jonas, Stijn en Frits.', ...klaar('Drie man achter de pas. Dit zijn ze.'), status: 'geplaatst' }),
       post(-6, { kanaal: 'reel', merk: 'brouwerij', thema: 'vuur', idee: 'Brouwdag: de ketel op temperatuur.', ...klaar('Brouwdag. De ketel draait sinds zes uur.'), status: 'geplaatst' }),
       post(-3, { kanaal: 'reel', thema: 'land', idee: 'Oogst op De Vloeiweide', ...klaar('Vanochtend geoogst, vanavond op het vuur.'), status: 'geplaatst' }),
-      post(2, { kanaal: 'reel', thema: 'vuur', idee: 'Houtduif op de grill, van dichtbij. 15 seconden, eindigt op het bord.', beeld: [{ naam: '2026-09-11_Sabine_clip-14.mp4' }] }),
+      post(0, { datum: plusDagen(nu, -1), kanaal: 'story', merk: 'barbrioche', thema: 'mensen', idee: 'Achter de schermen: de toonbank gaat erin.', ...klaar('De toonbank staat. Nog even.'), status: 'geplaatst' }),
+      post(0, { kanaal: 'carrousel', thema: 'tafel', idee: 'Last week: de beelden van vorige week.', tekst: 'Last week: pompoenen van De Vloeiweide, het najaarsmenu en een volle zaterdag.', tekst_door: 'mila@demo' }),
+      post(1, { kanaal: 'carrousel', merk: 'barbrioche', thema: 'boeken', idee: 'De kerstpakketten: wat erin zit.', tekst: 'Vijf kerstpakketten, van 25 tot 100 euro. Bestellen kan nu.', tekst_door: 'mila@demo' }),
+      post(4, { kanaal: 'reel', merk: 'barbrioche', thema: 'mensen', idee: 'Wie staat er straks achter de toonbank?' }),
+      post(5, { kanaal: 'tiktok', merk: 'barbrioche', thema: 'land', idee: 'De verbouwing in twintig seconden.', status: 'idee', aangemaakt_door: 'daan@demo' }),
+      post(2, { kanaal: 'reel', thema: 'vuur', idee: 'Houtduif op de grill, van dichtbij. 15 seconden, eindigt op het bord.', beeld: [{ naam: '2026-09-11_Mila_clip-14.mp4' }] }),
       post(3, { kanaal: 'carrousel', thema: 'tafel', idee: 'Het najaarsmenu in vijf borden: hamachi, wijting, langoustine, houtduif, peer.', ...klaar('Zeven gangen van het land en het vuur. Dit is de herfst bij Pellens, tot half november.'), status: 'tekst_klaar' }),
       post(4, { kanaal: 'story', thema: 'mensen', idee: 'Jonas aan de mise-en-place, wie staat er vanavond.' }),
       post(5, { kanaal: 'reel', merk: 'brouwerij', thema: 'land', idee: 'Kombucha van eigen oogst: van fles tot glas naast het menu.' }),
@@ -330,6 +335,9 @@ function demoStart() {
     metingen: [
       ...perWeek('ig_volgers_pellens', [3612, 3655, 3690, 3712, 3769, 3801, 3846, 3880, 3931, 3978]),
       ...perWeek('ig_volgers_brouwerij', [781, 788, 790, 799, 812, 818, 825, 829, 841, 852]),
+      ...weken.slice(-3).map((w, i) => meting('ig_volgers_barbrioche', w, [212, 236, 268][i])),
+      meting('reviews_pellens_week', vorige, 4),
+      meting('kerstpakketten', ma, 12),
       ...perWeek('gasten_diner', [27, 29, 31, 28, 30, 31, 29, 30, 32, 33]),
       ...perWeek('gasten_lunch', [6, 7, 9, 8, 9, 10, 11, 11, 12, 13]),
       meting('google_reviews', m3, 232),
@@ -350,10 +358,13 @@ function demoStart() {
     doelen: [
       { metric: 'gasten_diner', label: 'Gasten per diner', start_waarde: 31, doel_december: 33, doel_maart: 35, volgorde: 1 },
       { metric: 'gasten_lunch', label: 'Gasten per lunch', start_waarde: 9, doel_december: 15, doel_maart: 27, volgorde: 2 },
-      { metric: 'ig_volgers_pellens', label: 'Instagram-volgers Pellens', start_waarde: 3769, doel_december: 4800, doel_maart: 6000, volgorde: 3 },
-      { metric: 'ig_volgers_brouwerij', label: 'Instagram-volgers Brouwerij', start_waarde: null, doel_december: null, doel_maart: null, volgorde: 4 },
-      { metric: 'google_reviews', label: 'Google-reviews', start_waarde: 232, doel_december: 275, doel_maart: 320, volgorde: 5 },
+      { metric: 'ig_volgers_pellens', label: 'Instagram-volgers Pellens', start_waarde: 3769, doel_december: 4500, doel_maart: 6000, volgorde: 3 },
+      { metric: 'google_reviews', label: 'Google-reviews Pellens', start_waarde: 232, doel_december: 275, doel_maart: 320, volgorde: 5 },
       { metric: 'emailadressen', label: 'E-mailadressen van gasten', start_waarde: 0, doel_december: 150, doel_maart: 400, volgorde: 6 },
+      { metric: 'ig_volgers_barbrioche', label: 'Instagram-volgers Bar Brioche', start_waarde: null, doel_december: 1500, doel_maart: null, volgorde: 10 },
+      { metric: 'google_reviews_barbrioche', label: 'Google-reviews Bar Brioche', start_waarde: 0, doel_december: 20, doel_maart: null, volgorde: 11 },
+      { metric: 'kerstpakketten', label: 'Kerstpakketten', start_waarde: 0, doel_december: 200, doel_maart: null, volgorde: 12 },
+      { metric: 'ig_volgers_brouwerij', label: 'Instagram-volgers Brouwerij', start_waarde: null, doel_december: null, doel_maart: null, volgorde: 13 },
     ],
     uploads: [
       { id: uuid(), drive_file_id: 'demo', naam: `${vandaag()}_Mila_Vuur-en-grill_IMG-2210.jpg`, onderwerp: 'vuur', mime: 'image/jpeg', grootte: 2400000, link: null, email: 'mila@demo', created_at: geleden(0.1) },

@@ -5,7 +5,9 @@ import {
   takenVoorWeek, vrijePlekken, routinesVoor, streak, voortgang, filterPosts, postsTekstNodig,
   laatsteMeting, maandVanPlan, esc, getal,
   verwachtOpDatum, opSchema, verschil, waardenPer, weken, maanden, telPer, volgendeMaandVanPlan,
+  postsZonderTekst, postsWachtOpGoedkeuring, metStart, einddoel, metricActief, weekMinimum, weekVanPlan,
 } from '../public/lib/logica.js';
+import { metric } from '../public/lib/plan.js';
 
 test('datums rekenen in Nederlandse tijd', () => {
   assert.equal(vandaag(new Date('2026-10-04T22:30:00Z')), '2026-10-05');
@@ -169,4 +171,85 @@ test('verschil, reeksen met gaten, weken en maanden', () => {
   assert.deepEqual(telPer([{ a: 'x' }, { a: 'y' }, { a: 'x' }], 'a'), { x: 2, y: 1 });
   assert.equal(volgendeMaandVanPlan('2026-10-06').naam, 'November');
   assert.equal(volgendeMaandVanPlan('2027-03-10'), null);
+});
+
+test('plan tot januari: nieuwe routines vanaf 2 november, oude stoppen', () => {
+  const keys = (rol, datum) => routinesVoor(rol, datum).map(r => r.key);
+  // Maandag 2 november: eerste maandag, Mila reageert nu elke dag en plaatst "Last week:".
+  assert.deepEqual(keys('social', '2026-11-02'), ['reageren', 'last-week', 'weekplanning', 'volgers', 'maandcijfers', 'maandthema']);
+  // Dinsdag 3 november: Daan doet de ochtendcheck en beantwoordt reviews; inspreken en LinkedIn zijn gestopt.
+  assert.deepEqual(keys('eigenaar', '2026-11-03'), ['ochtendcheck', 'reviews-daan']);
+  // De eerste TikTok is in week 46.
+  assert.ok(!keys('eigenaar', '2026-11-04').includes('tiktok'));
+  assert.ok(keys('eigenaar', '2026-11-11').includes('tiktok'));
+  // Bar Brioche: QR-kaartje en story pas vanaf de eerste winkeldag, woensdag 2 december.
+  assert.deepEqual(keys('manager', '2026-12-01'), []);
+  assert.deepEqual(keys('manager', '2026-12-02'), ['reviewvraag', 'reviewvraag-barbrioche', 'gasten', 'reserveringen']);
+  assert.ok(keys('social', '2026-12-01').every(k => k !== 'story-barbrioche'));
+  assert.ok(keys('social', '2026-12-08').includes('story-barbrioche'));
+});
+
+test('tekst schrijven of goedkeuren', () => {
+  const posts = [
+    { id: 1, status: 'tekst_nodig', tekst_goedgekeurd: false, tekst: null },
+    { id: 2, status: 'tekst_nodig', tekst_goedgekeurd: false, tekst: 'Van Mila' },
+    { id: 3, status: 'tekst_klaar', tekst_goedgekeurd: true, tekst: 'Goedgekeurd' },
+    { id: 4, status: 'idee', tekst_goedgekeurd: false, tekst: '  ' },
+  ];
+  assert.deepEqual(postsZonderTekst(posts).map(p => p.id), [1, 4]);
+  assert.deepEqual(postsWachtOpGoedkeuring(posts).map(p => p.id), [2]);
+  assert.deepEqual(filterPosts(posts, { status: 'goedkeuren' }).map(p => p.id), [2]);
+  assert.deepEqual(filterPosts(posts, { status: 'tekst_nodig' }).map(p => p.id), [1, 4]);
+});
+
+test('doelen met alleen een decemberdoel en een eigen lijn', () => {
+  const pakketten = { metric: 'kerstpakketten', start_waarde: 0, doel_december: 200, doel_maart: null };
+  assert.equal(einddoel(pakketten), 200);
+  assert.deepEqual(voortgang(pakketten, 100), { procent: 0.5, tussenstap: null, nogTeGaan: 100, gehaald: false });
+  const lijn = metric('kerstpakketten');
+  assert.equal(verwachtOpDatum(pakketten, '2026-11-02', lijn), 0);
+  assert.equal(verwachtOpDatum(pakketten, '2026-12-24', lijn), 200);
+  assert.equal(verwachtOpDatum(pakketten, '2026-12-31', lijn), 200);
+  assert.equal(opSchema(pakketten, 200, '2026-12-24', lijn).status, 'op');
+  assert.equal(opSchema(pakketten, 50, '2026-12-24', lijn).status, 'achter');
+  // Zonder startwaarde telt de eerste meting.
+  const ig = { metric: 'ig_volgers_barbrioche', start_waarde: null, doel_december: 1500, doel_maart: null };
+  const metingen = [
+    { metric: 'ig_volgers_barbrioche', periode_start: '2026-11-09', waarde: 300 },
+    { metric: 'ig_volgers_barbrioche', periode_start: '2026-11-02', waarde: 250 },
+  ];
+  assert.equal(metStart(ig, metingen).start_waarde, 250);
+  assert.equal(metStart(ig, []).start_waarde, null);
+  assert.equal(metStart(pakketten, metingen), pakketten);
+});
+
+test('cijfers alleen invullen in de weken dat ze tellen', () => {
+  const pakketten = metric('kerstpakketten');
+  assert.equal(metricActief(pakketten, '2026-10-26'), false);
+  assert.equal(metricActief(pakketten, '2026-11-02'), true);
+  assert.equal(metricActief(pakketten, '2026-12-21'), true);
+  assert.equal(metricActief(pakketten, '2026-12-28'), false);
+  assert.equal(metricActief(metric('maaltijden_barbrioche'), '2026-11-23'), false);
+  assert.equal(metricActief(metric('maaltijden_barbrioche'), '2026-11-30'), true);
+  assert.equal(metricActief(metric('google_reviews'), '2026-10-01'), true);
+});
+
+test('weekplan en weekminimum per zaak', () => {
+  assert.equal(weekVanPlan('2026-11-04').titel, 'Opstarten');
+  assert.equal(weekVanPlan('2026-12-02').titel, 'Bar Brioche open');
+  assert.equal(weekVanPlan('2026-10-28'), null);
+  assert.equal(weekVanPlan('2027-01-05'), null);
+  assert.deepEqual(weekMinimum([], '2026-10-26'), []);
+  const posts = [
+    { datum: '2026-12-01', merk: 'barbrioche', kanaal: 'reel' },
+    { datum: '2026-12-03', merk: 'brouwerij', kanaal: 'carrousel' },
+    { datum: '2026-12-04', merk: 'pellens', kanaal: 'reel' },
+    { datum: '2026-12-07', merk: 'barbrioche', kanaal: 'foto' },
+  ];
+  const lijst = weekMinimum(posts, '2026-11-30');
+  const zoek = (zaak, label) => lijst.find(m => m.zaak === zaak && m.label === label);
+  assert.deepEqual([zoek('barbrioche', 'posts').gepland, zoek('barbrioche', 'posts').aantal], [2, 5]);
+  assert.deepEqual([zoek('pellens', 'reel').gepland, zoek('pellens', 'reel').aantal], [1, 1]);
+  assert.equal(zoek('barbrioche', 'TikTok').gepland, 0);
+  assert.equal(weekMinimum(posts, '2026-11-02').some(m => m.label === 'TikTok'), false);
 });

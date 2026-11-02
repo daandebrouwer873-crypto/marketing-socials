@@ -1,8 +1,11 @@
 # Pellens marketing: werkafspraken voor Claude
 
-De marketing-app van Restaurant Pellens (Breda) en Brouwerij de Brouwer. Daan (eigenaar), Mila
-(social media manager, 8 uur per week) en Beau (restaurantmanager) volgen hier het marketingplan
-van oktober 2026 tot en met maart 2027. Live op https://daandebrouwer873-crypto.github.io/marketing-socials/
+De marketing-app van Restaurant Pellens (Breda), Bar Brioche (delicatessenwinkel op Boschstraat 45, open
+vanaf 1 december 2026) en Brouwerij de Brouwer, dat bij Bar Brioche hoort. Daan (eigenaar), Mila (social media
+manager, 8 uur per week) en Beau (restaurantmanager) volgen hier het marketingplan van oktober 2026 tot en met
+maart 2027. Sinds 2 november 2026 met een plan per week tot en met 3 januari: `docs/plan-tot-januari.md`.
+Live op https://daandebrouwer873-crypto.github.io/marketing-socials/ en, met dezelfde inlog als de team-app,
+op https://pellens.netlify.app/marketing/
 
 ## Met Daan werken
 
@@ -12,8 +15,10 @@ van oktober 2026 tot en met maart 2027. Live op https://daandebrouwer873-crypto.
 
 ## Huisregels voor de app
 
-- **Geen AI-teksten voor posts.** Daan schrijft en spreekt alle posttekst zelf in. De app stelt nooit
-  zelf een tekst voor en vult niets aan. Alleen de eigenaar keurt teksten goed (de database dwingt dat af).
+- **Geen AI-teksten voor posts.** De posttekst schrijft soms Daan, soms Mila, altijd in eigen woorden. Wat Mila
+  schrijft, gaat pas online als Daan het heeft goedgekeurd. De app stelt nooit zelf een tekst voor en vult niets
+  aan. Alleen de eigenaar keurt teksten goed (de database dwingt dat af).
+- Schrijf nergens "kaas aan het mes": Daan wil die term niet.
 - **Geen gedachtestreepjes** (— of – midden in een zin) en **geen emoji's** in teksten in de app.
   Een streepje in een datumbereik ("5–11 okt") mag.
 - **Pellens-huisstijl:** navy, crème en goud; koppen in Fraunces, tekst in DM Sans; het dP-monogram.
@@ -29,8 +34,9 @@ van oktober 2026 tot en met maart 2027. Live op https://daandebrouwer873-crypto.
 
 - Gewone JavaScript-modules zonder framework en zonder npm-pakketten.
 - `public/app.js`: alle schermen, acties en formulieren.
-- `public/lib/plan.js`: de inhoud van het plan (maanden, spelregels, ritme, routines, thema's, cijfers).
-  Teksten in de app aanpassen begint meestal hier.
+- `public/lib/plan.js`: de inhoud van het plan (merken, weken tot januari, maanden, spelregels, ritme, routines,
+  weekminimum, thema's, cijfers). Teksten in de app aanpassen begint meestal hier. Stopt of begint een routine
+  of cijfer, gebruik dan `vanaf` en `tot` in plaats van hem weg te halen: zo blijven oude reeksen en cijfers kloppen.
 - `public/lib/logica.js`: rekenregels (datums, weken, drie-takenregel, reeksen, op schema).
 - `public/lib/opslag.js`: Supabase in het echt, of de demo met voorbeeldgegevens (`?demo` in de URL).
   Verander je de vorm van de demogegevens, verhoog dan `DEMO_SLEUTEL`.

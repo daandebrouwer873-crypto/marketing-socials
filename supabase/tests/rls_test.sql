@@ -337,6 +337,26 @@ select pg_temp.verwacht_fout(
   'permission denied');
 rollback;
 
+-- 15. Bar Brioche is een merk; een onbekend merk niet. De doelen van het plan tot januari staan erin.
+begin;
+select pg_temp.als('mila@test.nl');
+insert into public.marketing_posts (datum, merk, kanaal, idee) values ('2026-12-02', 'barbrioche', 'reel', 'De toonbank op de eerste dag');
+select pg_temp.zeker((select count(*) = 1 from public.marketing_posts where merk = 'barbrioche'), 'post voor Bar Brioche');
+select pg_temp.verwacht_fout(
+  $q$insert into public.marketing_posts (datum, merk, kanaal, idee) values ('2026-12-02', 'onbekend', 'reel', 'x')$q$,
+  'marketing_posts_merk_check');
+select pg_temp.zeker(
+  (select doel_december = 1500 and doel_maart is null and start_waarde is null
+   from public.marketing_doelen where metric = 'ig_volgers_barbrioche'),
+  'doel Instagram Bar Brioche');
+select pg_temp.zeker(
+  (select doel_december = 4500 from public.marketing_doelen where metric = 'ig_volgers_pellens'),
+  'doel Instagram Pellens 4.500 in december');
+select pg_temp.zeker(
+  (select count(*) = 3 from public.marketing_doelen where metric in ('ig_volgers_barbrioche', 'google_reviews_barbrioche', 'kerstpakketten')),
+  'drie doelen voor Bar Brioche');
+rollback;
+
 -- 14. De startgegevens koppelen precies Daan, Mila en Beau, in kleine letters.
 select pg_temp.zeker(
   (select string_agg(email || ':' || rol, ',' order by email) from public.marketing_teamleden)
