@@ -27,6 +27,8 @@ const nav = document.getElementById('nav');
 const zijbalk = document.getElementById('zijbalk');
 // Vanaf laptopbreedte: zijbalk en het overzicht als startpagina.
 const breed = window.matchMedia('(min-width: 1024px)');
+// De team-app toont deze app onder pellens.netlify.app/marketing/; zelfde adres, dus dezelfde inlog.
+const TEAM_APP = 'https://pellens.netlify.app/';
 
 const S = {
   lid: null,
@@ -695,6 +697,7 @@ function viewMeer() {
       <a class="kaart klik" href="#cijfers"><span class="e">${icoon('grafiek', 26)}</span><div><b>Cijfers</b><p class="mini">Week en maand invullen</p></div></a>
       <a class="kaart klik" href="#maandag"><span class="e">${icoon('klok', 26)}</span><div><b>Maandagkwartier</b><p class="mini">15 minuten, 3 stappen</p></div></a>
       <a class="kaart klik" href="#plan"><span class="e">${icoon('kaart', 26)}</span><div><b>Het plan</b><p class="mini">Zes maanden vooruit</p></div></a>
+      <a class="kaart klik" href="${TEAM_APP}"><span class="e">${icoon('huis', 26)}</span><div><b>Team-app</b><p class="mini">Terug naar rooster, menu en mededelingen</p></div></a>
     </div>
     <section class="kaart" style="margin-top:12px">
       <p class="label" style="margin-bottom:10px">${icoon('thema', 14)} Weergave</p>
@@ -1276,6 +1279,7 @@ function zijbalkHtml(pagina) {
         ${Object.entries(WEERGAVEN).map(([k, naam]) => `<button class="${huidigThema() === k ? 'aan' : ''}" data-actie="thema" data-thema="${k}" aria-pressed="${huidigThema() === k}">${naam}</button>`).join('')}
       </div>
       ${opslag.demo ? `<div class="zij-demo"><span class="mini">Bekijk als</span>${DEMO_TEAM.map(l => `<button class="${l.email === S.lid.email ? 'aan' : ''}" data-actie="demo-als" data-email="${l.email}">${esc(l.naam)}</button>`).join('')}</div>` : ''}
+      <a class="link-knop" href="${TEAM_APP}">${icoon('huis', 15)} Team-app</a>
       <button class="link-knop" data-actie="uitloggen">${icoon('uit', 15)} Uitloggen</button>
     </div>`;
 }
