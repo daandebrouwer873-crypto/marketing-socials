@@ -3,6 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <!-- In de team-app draait deze app onder /marketing/. Zonder slash vinden de bestanden hieronder hun weg niet. -->
+  <script>if (location.pathname === '/marketing') location.replace('/marketing/' + location.search + location.hash);</script>
   <title>Pellens marketing</title>
   <meta name="description" content="De marketing-hub van Restaurant Pellens en Brouwerij de Brouwer.">
   <meta name="theme-color" content="#252e3d">
