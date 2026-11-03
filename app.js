@@ -2,7 +2,7 @@
 import {
   vandaag, plusDagen, maandagVan, weekdag, vorigeMaand, weekNummer, weekBereik, korteDatum, dagNaam, dagKort, maandNaam,
   begroeting, takenVoorWeek, vrijePlekken, routinesVoor, streak, postsTekstNodig, postsZonderTekst, postsWachtOpGoedkeuring, filterPosts,
-  laatsteMeting, reeks, voortgang, maandVanPlan, volgendeMaandVanPlan, getal, voorletter, geledenTekst, esc, MAX_TAKEN,
+  laatsteMeting, reeks, voortgang, maandVanPlan, volgendeMaandVanPlan, getal, voorletter, geledenTekst, esc, inZin, MAX_TAKEN,
   verschil, waardenPer, weken, maanden, telPer, opSchema, metStart, einddoel, metricActief, weekMinimum, weekVanPlan,
 } from './lib/logica.js';
 import {
@@ -237,7 +237,7 @@ function viewVandaag() {
 
     <a class="kaart klik" href="#plan" style="display:block;text-decoration:none">
       <p class="label" style="margin-bottom:6px">Deze maand</p>
-      <div class="kop"><h2>${esc(maand.naam)}, <em>${esc(maand.thema.toLowerCase())}</em></h2><span class="sub">${PIJL_RECHTS}</span></div>
+      <div class="kop"><h2>${esc(maand.naam)}, <em>${esc(inZin(maand.thema))}</em></h2><span class="sub">${PIJL_RECHTS}</span></div>
       <div class="chips">${maand.momenten.map(m => `<span class="chip">${esc(m)}</span>`).join('')}</div>
     </a>`;
 }
@@ -1205,7 +1205,7 @@ function teamVandaag() {
         <div class="teamrij-kop"><b>${esc(lid.naam)}</b><span class="mini">${esc((ROLLEN[lid.rol] || { label: '' }).label)}</span></div>
         ${routines.length ? `
           <div class="meter" role="img" aria-label="${af} van ${routines.length} vaste taken af"><i style="width:${(af / routines.length) * 100}%"></i></div>
-          <p class="mini">${af === routines.length ? 'Alles af vandaag' : `${af} van ${routines.length} af · nog: ${esc(open.slice(0, 2).map(r => r.label.toLowerCase()).join(', '))}${open.length > 2 ? ` en ${open.length - 2} meer` : ''}`}</p>`
+          <p class="mini">${af === routines.length ? 'Alles af vandaag' : `${af} van ${routines.length} af · nog: ${esc(open.slice(0, 2).map(r => inZin(r.label)).join(', '))}${open.length > 2 ? ` en ${open.length - 2} meer` : ''}`}</p>`
         : '<p class="mini">Vandaag geen vaste taken</p>'}
         ${nodig ? `<p class="mini vaag">Afgelopen 7 dagen: ${klaar} van ${nodig} af (${Math.round((klaar / nodig) * 100)}%)</p>` : ''}
       </div>
@@ -1300,7 +1300,7 @@ function viewOverzicht() {
       <div>
         <p class="dagregel">${dagNaam(d)} ${korteDatum(d).split(' ').slice(1).join(' ')} · week ${weekNummer(d)}</p>
         <h1 class="hey">${begroeting()}, <em>${esc(S.lid.naam)}</em></h1>
-        <p class="sub">${esc(maand.naam)}: ${esc(maand.thema.toLowerCase())}</p>
+        <p class="sub">${esc(maand.naam)}: ${esc(inZin(maand.thema))}</p>
       </div>
       <div class="dash-acties">
         ${S.lid.rol !== 'manager' ? `<button class="knop klein" data-actie="post-nieuw">${icoon('plus', 16)} Post</button>` : ''}
@@ -1396,9 +1396,9 @@ function viewOverzicht() {
       </section>
 
       <section class="kaart blok b-3">
-        <div class="blok-kop"><div><p class="label">Het plan nu</p><h2>${esc(maand.naam)}, <em>${esc(maand.thema.toLowerCase())}</em></h2></div><a class="link-knop" href="#plan">Plan</a></div>
+        <div class="blok-kop"><div><p class="label">Het plan nu</p><h2>${esc(maand.naam)}, <em>${esc(inZin(maand.thema))}</em></h2></div><a class="link-knop" href="#plan">Plan</a></div>
         <ul class="momenten">${maand.momenten.map(m => `<li>${esc(m)}</li>`).join('')}</ul>
-        ${volgende ? `<p class="mini" style="margin-top:12px">Volgende maand: <b>${esc(volgende.naam)}</b>, ${esc(volgende.thema.toLowerCase())}</p>` : ''}
+        ${volgende ? `<p class="mini" style="margin-top:12px">Volgende maand: <b>${esc(volgende.naam)}</b>, ${esc(inZin(volgende.thema))}</p>` : ''}
         <details class="spelregels"><summary>Spelregels</summary><ol class="regels klein">${SPELREGELS.map(r => `<li>${esc(r)}</li>`).join('')}</ol></details>
       </section>
 
