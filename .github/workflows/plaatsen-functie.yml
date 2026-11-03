@@ -50,10 +50,12 @@ jobs:
         if: steps.sleutel.outputs.aanwezig == 'ja'
         run: npm test
 
+      # Vaste versie: sinds CLI 3.0 (2 november 2026) weigeren secrets set en functions deploy
+      # zonder --yes. Overstappen op 3.x kan, maar dan met --yes en --remote in plaats van --project-ref.
       - uses: supabase/setup-cli@v1
         if: steps.sleutel.outputs.aanwezig == 'ja'
         with:
-          version: latest
+          version: 2.121.0
 
       # Het token gaat via een tijdelijk bestand, zodat het nergens in de uitvoer of in een commando staat.
       - name: Meta-tokens doorgeven aan Supabase
