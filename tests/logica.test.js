@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   vandaag, plusDagen, weekdag, maandagVan, vorigeMaand, weekNummer, weekBereik, korteDatum,
   takenVoorWeek, vrijePlekken, routinesVoor, streak, voortgang, filterPosts, postsTekstNodig,
-  laatsteMeting, maandVanPlan, esc, getal,
+  laatsteMeting, maandVanPlan, esc, inZin, getal,
   verwachtOpDatum, opSchema, verschil, waardenPer, weken, maanden, telPer, volgendeMaandVanPlan,
   postsZonderTekst, postsWachtOpGoedkeuring, metStart, einddoel, metricActief, weekMinimum, weekVanPlan,
 } from '../public/lib/logica.js';
@@ -252,4 +252,13 @@ test('weekplan en weekminimum per zaak', () => {
   assert.deepEqual([zoek('pellens', 'reel').gepland, zoek('pellens', 'reel').aantal], [1, 1]);
   assert.equal(zoek('barbrioche', 'TikTok').gepland, 0);
   assert.equal(weekMinimum(posts, '2026-11-02').some(m => m.label === 'TikTok'), false);
+});
+
+test('midden in een zin houden namen hun hoofdletters', () => {
+  assert.equal(inZin('Bar Brioche komt eraan, kerst verkopen'), 'Bar Brioche komt eraan, kerst verkopen');
+  assert.equal(inZin('Op orde en december verkopen'), 'op orde en december verkopen');
+  assert.equal(inZin('Drie jaar Pellens'), 'drie jaar Pellens');
+  assert.equal(inZin('QR-kaartje bij elke klant van Bar Brioche'), 'QR-kaartje bij elke klant van Bar Brioche');
+  assert.equal(inZin('Google-post voor Pellens en Bar Brioche'), 'Google-post voor Pellens en Bar Brioche');
+  assert.equal(inZin(''), '');
 });
