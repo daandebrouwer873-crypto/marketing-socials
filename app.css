@@ -271,6 +271,7 @@ em, .cursief { font-family: var(--serif); font-style: italic; color: var(--goud)
 .merk { font-size: 11px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; }
 .m-pellens { color: var(--goud); }
 .m-brouwerij { color: var(--mist); }
+.m-barbrioche { color: var(--sintel); }
 .badge { display: inline-block; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--goud); color: var(--goud); font-size: 11px; font-weight: 600; }
 
 .knop {
@@ -755,6 +756,40 @@ ol.regels.klein li { font-size: 13.5px; }
 .doel .grafiek { margin-top: 16px; }
 .cijfers-raster { display: grid; gap: 12px; }
 .historie { margin: 0; }
+.groep-kop { font-size: 22px; font-weight: 450; margin: 22px 0 10px; }
+.paginakop + .groep-kop { margin-top: 6px; }
+
+/* ---- Het plan tot januari: ochtendcheck, weekplan, weekminimum ---- */
+
+.ochtend .kop + .blok-sub { margin-top: 4px; }
+.lijst-rij > .pill { flex: none; margin-left: auto; }
+.mini-doelen { display: grid; }
+.mini-doel { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; align-items: baseline; padding: 8px 0; border-top: 1px solid var(--lijn); font-size: 14px; }
+.mini-doel:first-child { border-top: 0; padding-top: 2px; }
+.mini-doel b { font-weight: 600; white-space: nowrap; }
+.mini-doel b small { font-weight: 400; color: var(--stil); }
+.mini-doel > .schema, .mini-doel > .mini { grid-column: 1 / -1; }
+.minimum { display: grid; gap: 6px; margin: 2px 0 14px; font-size: 13px; }
+.minimum p { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; color: var(--stil); }
+.minimum b { color: var(--tekst); font-weight: 600; min-width: 88px; }
+.minimum .ok { display: inline-flex; align-items: center; gap: 3px; color: var(--salie); }
+.minimum .nog { color: var(--sintel); }
+.weken { display: grid; gap: 10px; }
+.weken .kaart { margin: 0; }
+.weekplan summary { position: relative; padding-right: 32px; list-style: none; cursor: pointer; }
+.weekplan summary::-webkit-details-marker { display: none; }
+.weekplan summary::after { content: '+'; position: absolute; right: 0; top: 50%; transform: translateY(-50%); font-size: 24px; line-height: 1; color: var(--goud); }
+.weekplan[open] summary::after { content: '\2212'; }
+.weekplan summary .mini { display: block; }
+.weekplan summary b { font-family: var(--serif); font-size: 20px; font-weight: 450; }
+.weekplan[open] summary { margin-bottom: 14px; }
+.weekplan.nu { border-color: var(--goud); }
+.weekplan.voorbij:not([open]) summary { opacity: 0.7; }
+.wie-raster { display: grid; gap: 14px; }
+.wie-kolom h4 { margin-bottom: 8px; font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--goud); }
+@media (min-width: 720px) {
+  .wie-raster { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; }
+}
 
 /* ---- Laptop en groot scherm: zijbalk in plaats van de balk onderin ---- */
 

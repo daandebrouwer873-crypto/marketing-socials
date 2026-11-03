@@ -1,11 +1,13 @@
 // Pellens marketing: de app van Daan, Mila en Beau.
 import {
   vandaag, plusDagen, maandagVan, weekdag, vorigeMaand, weekNummer, weekBereik, korteDatum, dagNaam, dagKort, maandNaam,
-  begroeting, takenVoorWeek, vrijePlekken, routinesVoor, streak, postsTekstNodig, filterPosts,
+  begroeting, takenVoorWeek, vrijePlekken, routinesVoor, streak, postsTekstNodig, postsZonderTekst, postsWachtOpGoedkeuring, filterPosts,
   laatsteMeting, reeks, voortgang, maandVanPlan, volgendeMaandVanPlan, getal, voorletter, geledenTekst, esc, MAX_TAKEN,
-  verschil, waardenPer, weken, maanden, telPer, opSchema,
+  verschil, waardenPer, weken, maanden, telPer, opSchema, metStart, einddoel, metricActief, weekMinimum, weekVanPlan,
 } from './lib/logica.js';
-import { KANALEN, THEMAS, MERKEN, POST_STATUS, MAANDEN, RITME, SPELREGELS, METRICS, ROLLEN, metric } from './lib/plan.js';
+import {
+  KANALEN, THEMAS, MERKEN, ZAKEN, POST_STATUS, MAANDEN, WEKEN, RITME, SPELREGELS, METRICS, ROLLEN, POST_ONDERWERPEN, MINIMUM, metric,
+} from './lib/plan.js';
 import { ONDERWERPEN, onderwerp, driveMapUrl } from './lib/onderwerpen.js';
 import { maakOpslag, DEMO_TEAM } from './lib/opslag.js';
 import { uploadNaarBeeldbank, mimeVan } from './lib/upload.js';
@@ -225,6 +227,8 @@ function viewVandaag() {
       ${routines.length ? rijen : '<p class="leeg">Vandaag geen vaste taken. Geniet ervan.</p>'}
     </section>
 
+    ${weekKaart()}
+
     ${mijnTaken.length ? `
       <section class="kaart">
         <div class="kop"><h2>Jouw weektaken</h2><a class="link-knop" href="#week">Week →</a></div>
@@ -242,19 +246,8 @@ function rolKaart() {
   const maandag = dezeMaandag();
   const zondag = plusDagen(maandag, 6);
   const dezeWeek = S.posts.filter(p => p.datum >= maandag && p.datum <= zondag);
-  const vanaf = plusDagen(nu(), -7);
 
-  if (isEigenaar()) {
-    const wachten = postsTekstNodig(S.posts.filter(p => p.datum >= vanaf));
-    return wachten.length
-      ? `<a class="kaart gloed klik" href="#posts/tekst" style="display:block;text-decoration:none">
-          <p class="label" style="margin-bottom:6px">${icoon('mic', 14)} Jouw beurt</p>
-          <div class="kop"><h2>${wachten.length} ${wachten.length === 1 ? 'post wacht' : 'posts wachten'} op jouw tekst</h2></div>
-          <p class="sub">Tik, praat, keur goed. Mila doet de rest.</p>
-          <div class="knoppen een"><span class="knop">${icoon('mic')} Inspreken</span></div>
-        </a>`
-      : `<div class="kaart"><p class="label" style="margin-bottom:6px">${icoon('check', 14)} Teksten</p><h2>Alle teksten zijn binnen</h2><p class="sub">Niets dat op jou wacht. Lekker.</p></div>`;
-  }
+  if (isEigenaar()) return ochtendcheck();
 
   if (isSocial()) {
     const klaar = dezeWeek.filter(p => p.tekst_goedgekeurd).length;
@@ -262,7 +255,7 @@ function rolKaart() {
     return `<div class="bento">
       <a class="kaart tegel klik" href="#posts" style="text-decoration:none">
         <span class="label">Deze week</span>
-        <div><div class="groot">${dezeWeek.length}</div><div class="tekst-onder">posts gepland, ${klaar} met tekst</div></div>
+        <div><div class="groot">${dezeWeek.length}</div><div class="tekst-onder">posts gepland, ${klaar} goedgekeurd</div></div>
       </a>
       <a class="kaart tegel klik" href="#upload" style="text-decoration:none">
         <span class="label">Beeldbank</span>
@@ -273,9 +266,94 @@ function rolKaart() {
 
   return `<div class="kaart">
     <p class="label" style="margin-bottom:6px">${icoon('ster', 14)} Reviews</p>
-    <h2>Reviews komen van enthousiaste tafels</h2>
-    <p class="sub">Vraag het bij de koffie, nooit bij de rekening. Een tafel vrij op vrijdag of zaterdag? Geef het direct door aan Mila.</p>
+    <h2>Elke tafel een QR-kaartje</h2>
+    <p class="sub">Vraag iedereen op dezelfde manier om een review en geef er nooit iets voor terug. Vanaf 2 december ook elke klant van Bar Brioche. Een tafel vrij op vrijdag of zaterdag? Geef het direct door aan Mila.</p>
   </div>`;
+}
+
+// Daan, elke ochtend vijf minuten: goedkeuren, gisteren, reviews en berichten, doelen.
+function ochtendcheck() {
+  const d = nu();
+  const recent = S.posts.filter(p => p.datum >= plusDagen(d, -7));
+  const goedkeuren = postsWachtOpGoedkeuring(recent);
+  const zonderTekst = postsZonderTekst(recent.filter(p => p.datum >= d && p.datum <= plusDagen(d, 3)));
+  const gisteren = S.posts.filter(p => p.datum === plusDagen(d, -1));
+  return `<section class="kaart gloed ochtend">
+    <div class="kop"><h2>Ochtendcheck</h2><span class="pill p-bubbel">5 min</span></div>
+    <h3 class="blok-sub">Goedkeuren</h3>
+    ${goedkeuren.length ? `<div class="lijstje">${goedkeuren.map(p => postRij(p, `<span class="cta">${icoon('check', 13)} Bekijken</span>`)).join('')}</div>`
+      : '<p class="leeg">Niets dat op je goedkeuring wacht.</p>'}
+    ${zonderTekst.length ? `<p class="mini" style="margin-top:6px">${zonderTekst.length} ${zonderTekst.length === 1 ? 'post' : 'posts'} van de komende drie dagen ${zonderTekst.length === 1 ? 'heeft' : 'hebben'} nog geen tekst. <a class="link-knop" href="#posts/tekst">Bekijken</a></p>` : ''}
+    <h3 class="blok-sub">Gisteren</h3>
+    ${gisteren.length ? `<div class="lijstje">${gisteren.map(p => postRij(p, p.status === 'geplaatst' ? '<span class="pill p-goud">Geplaatst</span>' : '<span class="pill p-vuur">Niet geplaatst</span>')).join('')}</div>`
+      : '<p class="leeg">Gisteren stond er niets gepland.</p>'}
+    <h3 class="blok-sub">Reviews en berichten</h3>
+    <p class="sub">Kijk in Google en Instagram, bij Pellens en Bar Brioche, of er iets nieuws is. Op dinsdag beantwoord je de reviews, kort en met je naam.</p>
+    <h3 class="blok-sub">Doelen 31 december</h3>
+    <div class="mini-doelen">${miniDoelen()}</div>
+    <a class="link-knop" href="#doelen" style="display:inline-block;margin-top:10px">Alle doelen</a>
+  </section>`;
+}
+
+function postRij(p, rechts = '') {
+  const kanaal = KANALEN[p.kanaal] || { label: p.kanaal };
+  const merk = MERKEN[p.merk] || MERKEN.pellens;
+  return `<button class="lijst-rij" data-actie="post-open" data-id="${esc(p.id)}">
+    ${swatch(p.merk)}<span class="lijst-tekst"><b>${esc(korteDatum(p.datum))} · ${esc(kanaal.label)} · ${esc(merk.kort)}</b><span>${esc(p.idee)}</span></span>${rechts}
+  </button>`;
+}
+
+// Een doel per week, zoals "meer dan 5 nieuwe reviews": de stand van vorige week.
+function weekdoelStand(m) {
+  const week = plusDagen(dezeMaandag(), -7);
+  const waarde = waardenPer(S.metingen, m.key, [week])[0];
+  return { week, waarde, gehaald: waarde != null && waarde > m.weekdoel.meerDan };
+}
+
+function miniDoelen() {
+  const perWeek = METRICS.filter(m => m.weekdoel).map(m => {
+    const { waarde, gehaald } = weekdoelStand(m);
+    return `<div class="mini-doel"><span>${esc(m.label)}, vorige week</span><b>${esc(getal(waarde))}</b>
+      ${waarde == null ? '<span class="mini">nog niet ingevuld</span>' : `<span class="schema s-${gehaald ? 'voor' : 'achter'}">${icoon(gehaald ? 'check' : 'klok', 14)} doel ${esc(m.weekdoel.tekst)}</span>`}</div>`;
+  });
+  const standen = S.doelen.filter(x => x.doel_december != null).map(ruw => {
+    const m = metric(ruw.metric) || {};
+    const doel = metStart(ruw, S.metingen);
+    const laatst = laatsteMeting(S.metingen, doel.metric);
+    const huidig = laatst ? Number(laatst.waarde) : null;
+    const dec = m.decimalen || 0;
+    return `<div class="mini-doel"><span>${esc(doel.label)}</span><b>${esc(getal(huidig, dec))} <small>/ ${esc(getal(doel.doel_december, dec))}</small></b>
+      ${huidig == null ? '<span class="mini">nog niet gemeten</span>' : schemaLabel(opSchema(doel, huidig, nu(), m))}</div>`;
+  });
+  return [...perWeek, ...standen].join('') || '<p class="leeg">Nog geen doelen ingesteld.</p>';
+}
+
+// Wie welke rol heeft, met naam.
+function naamVan(rol) {
+  const lid = S.team.find(l => l.rol === rol);
+  return lid ? lid.naam : (ROLLEN[rol] || { label: rol }).label;
+}
+
+// Wat het plan deze week van jou vraagt.
+function weekKaart() {
+  const week = weekVanPlan(nu());
+  if (!week) return '';
+  const mijn = [...(week.taken[S.lid.rol] || []), ...(week.taken.samen || [])];
+  return `<a class="kaart klik" href="#plan" style="display:block;text-decoration:none">
+    <p class="label" style="margin-bottom:6px">${icoon('kaart', 14)} Week ${weekNummer(week.maandag)} in het plan</p>
+    <div class="kop"><h2>${esc(week.titel)}</h2><span class="sub">${PIJL_RECHTS}</span></div>
+    ${mijn.length ? `<ul class="momenten">${mijn.map(t => `<li>${esc(t)}</li>`).join('')}</ul>` : '<p class="sub">Deze week niets extra voor jou, alleen de vaste taken.</p>'}
+    ${week.momenten.length ? `<div class="chips" style="margin-top:12px">${week.momenten.map(m => `<span class="chip">${esc(m)}</span>`).join('')}</div>` : ''}
+  </a>`;
+}
+
+// Het hele weekplan met iedereen erin, voor het overzicht en het plan.
+function weekPlanRaster(week) {
+  const kolommen = [['eigenaar', naamVan('eigenaar')], ['social', naamVan('social')], ['manager', naamVan('manager')], ['samen', 'Iedereen']]
+    .filter(([rol]) => (week.taken[rol] || []).length);
+  return `<div class="wie-raster">${kolommen.map(([rol, naam]) => `<div class="wie-kolom">
+      <h4>${esc(naam)}</h4><ul class="momenten">${week.taken[rol].map(t => `<li>${esc(t)}</li>`).join('')}</ul>
+    </div>`).join('')}</div>`;
 }
 
 function taakRij(t) {
@@ -351,12 +429,14 @@ function viewPosts() {
   const dagen = Array.from({ length: 7 }, (_, i) => plusDagen(maandag, i));
   const inWeek = S.posts.filter(p => p.datum >= dagen[0] && p.datum <= dagen[6]);
   const gefilterd = filterPosts(inWeek, S.postFilter);
-  const tekstNodig = postsTekstNodig(inWeek).length;
+  const zonderTekst = postsZonderTekst(inWeek).length;
+  const goedkeuren = postsWachtOpGoedkeuring(inWeek).length;
+  const tel = n => (n ? ` <span class="tel">${n}</span>` : '');
   const filters = [
-    ['alles', 'Alles'], ['tekst_nodig', `Tekst nodig${tekstNodig ? ` <span class="tel">${tekstNodig}</span>` : ''}`],
+    ['alles', 'Alles'], ['tekst_nodig', `Tekst nodig${tel(zonderTekst)}`], ['goedkeuren', `Goedkeuren${tel(goedkeuren)}`],
     ['tekst_klaar', 'Klaar'], ['ingepland', 'Ingepland'], ['geplaatst', 'Geplaatst'],
   ];
-  const merken = [['alles', 'Beide merken'], ['pellens', 'Pellens'], ['brouwerij', 'Brouwerij']];
+  const merken = [['alles', 'Alle merken'], ...Object.entries(MERKEN).map(([k, m]) => [k, m.kort])];
 
   const groepen = dagen.map(d => {
     const posts = gefilterd.filter(p => p.datum === d);
@@ -380,6 +460,8 @@ function viewPosts() {
       }).join('')}
     </div>
 
+    ${minimumRegels(maandag)}
+
     <div class="chips scroll" role="group" aria-label="Filter op status">
       ${filters.map(([k, l]) => `<button class="chip${S.postFilter.status === k ? ' aan' : ''}" data-actie="post-filter" data-status="${k}">${l}</button>`).join('')}
     </div>
@@ -392,11 +474,28 @@ function viewPosts() {
     ${S.lid.rol !== 'manager' ? '<button class="fab" data-actie="post-nieuw">＋ Post</button>' : ''}`;
 }
 
+// Wat er deze week minimaal online moet, per zaak, en hoeveel er al gepland staat.
+function minimumRegels(maandag) {
+  const lijst = weekMinimum(S.posts, maandag);
+  if (!lijst.length) return '';
+  return `<div class="minimum" aria-label="Minimaal deze week">${Object.entries(ZAKEN).map(([zaak, z]) => {
+    const regels = lijst.filter(m => m.zaak === zaak);
+    return regels.length ? `<p><b>${esc(z.label)}</b>${regels.map(m => `<span class="${m.gepland >= m.aantal ? 'ok' : 'nog'}">${m.gepland >= m.aantal ? icoon('check', 13) : ''}${m.gepland} van ${m.aantal} ${esc(m.label)}</span>`).join('')}</p>` : '';
+  }).join('')}</div>`;
+}
+
+// Een tekst die op Daan wacht, heet ook zo: anders lijkt het alsof er nog geen tekst is.
+function statusVan(p) {
+  if (postsWachtOpGoedkeuring([p]).length) return { label: 'Ter goedkeuring', kleur: 'bubbel' };
+  return POST_STATUS[p.status] || POST_STATUS.idee;
+}
+
 function postKaart(p) {
   const kanaal = KANALEN[p.kanaal] || { label: p.kanaal, emoji: '•' };
-  const status = POST_STATUS[p.status] || POST_STATUS.idee;
+  const status = statusVan(p);
   const thema = THEMAS[p.thema];
-  const wachtOpDaan = isEigenaar() && postsTekstNodig([p]).length;
+  const goedkeuren = isEigenaar() && postsWachtOpGoedkeuring([p]).length;
+  const schrijven = S.lid.rol !== 'manager' && postsZonderTekst([p]).length;
   return `<article class="kaart post" data-actie="post-open" data-id="${esc(p.id)}" tabindex="0" role="button">
     <div class="post-top">
       <span class="kanaal">${esc(kanaal.label)}</span>
@@ -409,7 +508,7 @@ function postKaart(p) {
       ${thema ? `<span>${esc(thema.label)}</span>` : ''}
       ${(p.beeld || []).length ? `<span>${icoon('beeld', 15)} ${p.beeld.length}</span>` : ''}
       ${p.spraakmemo_pad ? `<span>${icoon('geluid', 15)} memo</span>` : ''}
-      ${wachtOpDaan ? `<span class="cta">${icoon('mic', 14)} Inspreken</span>` : ''}
+      ${goedkeuren ? `<span class="cta">${icoon('check', 14)} Goedkeuren</span>` : schrijven ? `<span class="cta">${icoon('mic', 14)} Tekst schrijven</span>` : ''}
     </div>
   </article>`;
 }
@@ -550,6 +649,7 @@ function keuzeRij(naam, opties, gekozen) {
 function postPaneel(post) {
   const nieuw = !post;
   const p = post || { datum: nu(), merk: 'pellens', kanaal: 'reel', thema: 'vuur', idee: '', beeld: [], status: 'tekst_nodig' };
+  const plekhouder = { eigenaar: 'Spreek je tekst in of typ hem hier.', social: 'Schrijf de tekst in je eigen woorden. Daan keurt hem goed.' }[S.lid.rol] || 'Hier komt de tekst.';
   const details = S.lid.rol !== 'manager';
   const kanaal = KANALEN[p.kanaal] || KANALEN.reel;
   const gekozenBeeld = new Set((p.beeld || []).map(b => b.naam));
@@ -557,7 +657,7 @@ function postPaneel(post) {
 
   const detailVelden = details ? `
     <label class="veld"><span>Wanneer</span><input type="date" name="datum" required value="${esc(p.datum)}"></label>
-    <div class="veld"><span>Merk</span>${keuzeRij('merk', { pellens: { label: 'Pellens' }, brouwerij: { label: 'Brouwerij de Brouwer' } }, p.merk)}</div>
+    <div class="veld"><span>Merk</span>${keuzeRij('merk', MERKEN, p.merk)}</div>
     <div class="veld"><span>Kanaal</span>${keuzeRij('kanaal', KANALEN, p.kanaal)}</div>
     <div class="veld"><span>Thema</span>${keuzeRij('thema', THEMAS, p.thema)}</div>
     <label class="veld"><span>Waar gaat de post over?</span>
@@ -568,11 +668,11 @@ function postPaneel(post) {
     <p class="sub">${korteDatum(p.datum)} · ${esc((MERKEN[p.merk] || MERKEN.pellens).label)}</p>
     <p class="idee" style="margin:10px 0 16px">${esc(p.idee)}</p>`;
 
-  const tekstDeel = nieuw ? `<p class="mini" style="margin-bottom:12px">Na het opslaan kan Daan de tekst inspreken.</p>` : `
+  const tekstDeel = nieuw ? `<p class="mini" style="margin-bottom:12px">Na het opslaan schrijf jij of Daan de tekst.</p>` : `
     <div class="kop" style="display:flex;justify-content:space-between;align-items:center;margin:6px 0 8px">
       <h3 class="serif" style="font-size:20px;font-weight:450">Tekst</h3><span class="geen-ai">Eigen woorden, geen AI</span>
     </div>
-    <textarea name="tekst" maxlength="2200" id="post-tekst" placeholder="${isEigenaar() ? 'Spreek je tekst in of typ hem hier.' : 'Hier komt de tekst van Daan.'}">${esc(p.tekst || '')}</textarea>
+    <textarea name="tekst" maxlength="2200" id="post-tekst" placeholder="${plekhouder}">${esc(p.tekst || '')}</textarea>
     <div class="teller"><span id="teller">${(p.tekst || '').length}</span>/2200</div>
     <div class="inspreek">
       ${dicterenKan()
@@ -693,10 +793,10 @@ function viewMeer() {
     </div>
     <div class="tegels">
       <a class="kaart klik" href="#overzicht"><span class="e">${icoon('raster', 26)}</span><div><b>Overzicht</b><p class="mini">Alles op één scherm</p></div></a>
-      <a class="kaart klik" href="#doelen"><span class="e">${icoon('doel', 26)}</span><div><b>Doelen</b><p class="mini">Tot eind maart 2027</p></div></a>
+      <a class="kaart klik" href="#doelen"><span class="e">${icoon('doel', 26)}</span><div><b>Doelen</b><p class="mini">Pellens en Bar Brioche</p></div></a>
       <a class="kaart klik" href="#cijfers"><span class="e">${icoon('grafiek', 26)}</span><div><b>Cijfers</b><p class="mini">Week en maand invullen</p></div></a>
       <a class="kaart klik" href="#maandag"><span class="e">${icoon('klok', 26)}</span><div><b>Maandagkwartier</b><p class="mini">15 minuten, 3 stappen</p></div></a>
-      <a class="kaart klik" href="#plan"><span class="e">${icoon('kaart', 26)}</span><div><b>Het plan</b><p class="mini">Zes maanden vooruit</p></div></a>
+      <a class="kaart klik" href="#plan"><span class="e">${icoon('kaart', 26)}</span><div><b>Het plan</b><p class="mini">Week voor week tot januari</p></div></a>
       <a class="kaart klik" href="${TEAM_APP}"><span class="e">${icoon('huis', 26)}</span><div><b>Team-app</b><p class="mini">Terug naar rooster, menu en mededelingen</p></div></a>
     </div>
     <section class="kaart" style="margin-top:12px">
@@ -723,38 +823,66 @@ function schemaLabel(schema) {
   return `<span class="schema s-${schema.status}">${icoon(schema.status === 'achter' ? 'klok' : 'check', 14)} ${teksten[schema.status]}</span>`;
 }
 
+function doelKaart(ruw) {
+  const m = metric(ruw.metric) || { decimalen: 0 };
+  const doel = metStart(ruw, S.metingen);
+  const dec = m.decimalen || 0;
+  const laatst = laatsteMeting(S.metingen, doel.metric);
+  const huidig = laatst ? Number(laatst.waarde) : null;
+  const v = voortgang(doel, huidig);
+  const schema = opSchema(doel, huidig, nu(), m);
+  const eind = einddoel(doel);
+  const verloop = reeks(S.metingen, doel.metric, 12);
+  return `<article class="kaart doel">
+    <div class="kop"><h3>${esc(doel.label)}</h3>${isEigenaar() ? `<button class="link-knop" data-actie="doel-bewerk" data-metric="${esc(doel.metric)}">Aanpassen</button>` : ''}</div>
+    <div class="waarde">${getal(huidig ?? doel.start_waarde, dec)} <small>${huidig == null ? 'start' : 'nu'}${eind == null ? '' : ` · doel ${doel.doel_maart != null ? 'maart' : 'december'} ${getal(eind, dec)}`}</small></div>
+    ${eind == null ? '<p class="mini" style="margin-top:10px">Nog geen doel ingesteld.</p>' : v ? `
+      <div class="balk-groot" role="img" aria-label="${Math.round(v.procent * 100)} procent van het doel">
+        <i style="width:${Math.max(3, v.procent * 100)}%"></i>
+        ${v.tussenstap != null ? `<span class="merkpunt" style="left:${v.tussenstap * 100}%" title="Tussendoel december"></span>` : ''}
+        ${schema ? `<span class="verwacht-punt" style="left:${Math.max(0, Math.min(1, schema.verwachtDeel)) * 100}%" title="Hier zou je nu volgens het plan staan"></span>` : ''}
+      </div>
+      <div class="doel-voet"><span>Start ${getal(doel.start_waarde, dec)}</span>${doel.doel_december != null ? `<span>Dec ${getal(doel.doel_december, dec)}</span>` : ''}${doel.doel_maart != null ? `<span>Mrt ${getal(doel.doel_maart, dec)}</span>` : ''}</div>
+      <p class="mini" style="margin-top:8px">${v.gehaald ? '<span class="schema s-voor">Doel gehaald</span>' : schemaLabel(schema)}${schema ? ` · volgens plan nu ${getal(schema.verwacht, dec)}` : ''}</p>`
+      : `<p class="mini" style="margin-top:10px">${doel.start_waarde == null ? 'Nog geen meting. De eerste meting telt als start.' : 'Nog geen meting. Vul de cijfers in om de voortgang te zien.'}</p>`}
+    ${verloop.length >= 2 ? lijnGrafiek({
+      titel: `Verloop ${doel.label}`,
+      labels: verloop.map(x => periodeLabel(x.periode_start, m.periode)),
+      reeksen: [{ naam: doel.label, kleur: 'g1', waarden: verloop.map(x => Number(x.waarde)) }],
+      decimalen: dec, hoogte: 130, tabelKop: m.periode === 'week' ? 'Week' : 'Maand',
+    }) : ''}
+  </article>`;
+}
+
+// Een doel per week (zoals meer dan 5 nieuwe reviews), met de laatste acht weken.
+function weekdoelKaart(m) {
+  const { waarde, gehaald } = weekdoelStand(m);
+  const wk = weken(plusDagen(dezeMaandag(), -7), 8).filter(w => metricActief(m, w));
+  const waarden = waardenPer(S.metingen, m.key, wk);
+  return `<article class="kaart doel">
+    <div class="kop"><h3>${esc(m.label)}</h3></div>
+    <div class="waarde">${getal(waarde)} <small>vorige week · doel ${esc(m.weekdoel.tekst)}</small></div>
+    <p class="mini" style="margin-top:8px">${waarde == null
+      ? `Nog niet ingevuld. ${esc(naamVan(m.rol))} vult dit elke week in bij Cijfers.`
+      : `<span class="schema s-${gehaald ? 'voor' : 'achter'}">${icoon(gehaald ? 'check' : 'klok', 14)} ${gehaald ? 'doel gehaald' : 'onder het doel'}</span>`}</p>
+    ${waarden.filter(x => x != null).length >= 2 ? lijnGrafiek({
+      titel: `${m.label} per week`, labels: wk.map(weekLabel), tabelKop: 'Week', hoogte: 130,
+      reeksen: [{ naam: m.label, kleur: 'g1', waarden }],
+    }) : ''}
+  </article>`;
+}
+
 function viewDoelen() {
-  const kaarten = S.doelen.map(doel => {
-    const m = metric(doel.metric) || { decimalen: 0 };
-    const laatst = laatsteMeting(S.metingen, doel.metric);
-    const huidig = laatst ? Number(laatst.waarde) : null;
-    const v = voortgang(doel, huidig);
-    const schema = opSchema(doel, huidig, nu());
-    const geenDoel = doel.doel_maart == null;
-    const verloop = reeks(S.metingen, doel.metric, 12);
-    return `<article class="kaart doel">
-      <div class="kop"><h3>${esc(doel.label)}</h3>${isEigenaar() ? `<button class="link-knop" data-actie="doel-bewerk" data-metric="${esc(doel.metric)}">Aanpassen</button>` : ''}</div>
-      <div class="waarde">${getal(huidig ?? doel.start_waarde, m.decimalen)} <small>${huidig == null ? 'start' : 'nu'}${geenDoel ? '' : ` · doel ${getal(doel.doel_maart, m.decimalen)}`}</small></div>
-      ${geenDoel ? '<p class="mini" style="margin-top:10px">Doel volgt na de nulmeting in oktober.</p>' : v ? `
-        <div class="balk-groot" role="img" aria-label="${Math.round(v.procent * 100)} procent van het doel">
-          <i style="width:${Math.max(3, v.procent * 100)}%"></i>
-          ${v.tussenstap != null ? `<span class="merkpunt" style="left:${v.tussenstap * 100}%" title="Tussendoel december"></span>` : ''}
-          ${schema ? `<span class="verwacht-punt" style="left:${Math.max(0, Math.min(1, schema.verwachtDeel)) * 100}%" title="Hier zou je nu volgens het plan staan"></span>` : ''}
-        </div>
-        <div class="doel-voet"><span>Start ${getal(doel.start_waarde, m.decimalen)}</span><span>Dec ${getal(doel.doel_december, m.decimalen)}</span><span>Mrt ${getal(doel.doel_maart, m.decimalen)}</span></div>
-        <p class="mini" style="margin-top:8px">${v.gehaald ? '<span class="schema s-voor">Doel gehaald</span>' : schemaLabel(schema)}${schema ? ` · volgens plan nu ${getal(schema.verwacht, m.decimalen)}` : ''}</p>`
-        : '<p class="mini" style="margin-top:10px">Nog geen meting. Vul de cijfers in om de voortgang te zien.</p>'}
-      ${verloop.length >= 2 ? lijnGrafiek({
-        titel: `Verloop ${doel.label}`,
-        labels: verloop.map(x => periodeLabel(x.periode_start, m.periode)),
-        reeksen: [{ naam: doel.label, kleur: 'g1', waarden: verloop.map(x => Number(x.waarde)) }],
-        decimalen: m.decimalen || 0, hoogte: 130, tabelKop: m.periode === 'week' ? 'Week' : 'Maand',
-      }) : ''}
-    </article>`;
+  const groepen = Object.entries(ZAKEN).map(([zaak, z]) => {
+    const kaarten = [
+      ...METRICS.filter(m => m.weekdoel && m.zaak === zaak).map(weekdoelKaart),
+      ...S.doelen.filter(x => ((metric(x.metric) || {}).zaak || 'pellens') === zaak).map(doelKaart),
+    ];
+    return kaarten.length ? `<h2 class="groep-kop">${esc(z.label)}</h2><div class="doelen-raster">${kaarten.join('')}</div>` : '';
   }).join('');
   return `
-    <header class="paginakop"><a class="rond-knop" href="#meer" aria-label="Terug">${PIJL_LINKS}</a><div class="midden"><h1 class="titel">Doelen</h1><p class="sub">Tot eind maart 2027 · streep = december · driehoekje = waar je nu zou moeten staan</p></div></header>
-    ${kaarten ? `<div class="doelen-raster">${kaarten}</div>` : '<div class="kaart"><p class="leeg">Nog geen doelen ingesteld.</p></div>'}`;
+    <header class="paginakop"><a class="rond-knop" href="#meer" aria-label="Terug">${PIJL_LINKS}</a><div class="midden"><h1 class="titel">Doelen</h1><p class="sub">Streep = tussendoel 31 december · driehoekje = waar je nu volgens plan zou staan</p></div></header>
+    ${groepen || '<div class="kaart"><p class="leeg">Nog geen doelen ingesteld.</p></div>'}`;
 }
 
 function doelPaneel(doel) {
@@ -788,7 +916,7 @@ function cijferPeriode() {
 }
 
 function metingVelden(soort, periode) {
-  return METRICS.filter(m => m.periode === soort).map(m => {
+  return METRICS.filter(m => m.periode === soort && metricActief(m, periode)).map(m => {
     const bestaand = S.metingen.find(x => x.metric === m.key && x.periode_start === periode);
     const waarden = reeks(S.metingen, m.key).map(x => Number(x.waarde));
     // Rijen van scripts/meta-cijfers.mjs en google-cijfers.mjs hebben geen e-mail; vanuit de app vult de database die altijd in.
@@ -829,7 +957,7 @@ function viewCijfers() {
 
 function cijferHistorie(soort) {
   const perioden = soort === 'week' ? weken(plusDagen(dezeMaandag(), -7), 8) : maanden(vorigeMaand(nu()), 6);
-  const lijst = METRICS.filter(m => m.periode === soort);
+  const lijst = METRICS.filter(m => m.periode === soort && perioden.some(x => metricActief(m, x)));
   return `<section class="kaart historie">
     <div class="kop"><h2>${soort === 'week' ? 'Laatste acht weken' : 'Laatste zes maanden'}</h2></div>
     <div class="tabel-scroll"><table class="cijfertabel">
@@ -892,9 +1020,25 @@ function viewMaandag() {
 }
 
 function viewPlan() {
-  const huidige = maandVanPlan(nu()).maand;
+  const d = nu();
+  const huidige = maandVanPlan(d).maand;
+  const dezeWeek = weekVanPlan(d);
+  const wekenHtml = WEKEN.map(w => {
+    const nuWeek = dezeWeek && w.maandag === dezeWeek.maandag;
+    const voorbij = plusDagen(w.maandag, 6) < d;
+    return `<details class="kaart weekplan${nuWeek ? ' nu' : ''}${voorbij ? ' voorbij' : ''}"${nuWeek ? ' open' : ''}>
+      <summary><span class="mini">Week ${weekNummer(w.maandag)} · ${esc(weekBereik(w.maandag))}${nuWeek ? ' · deze week' : ''}</span><b>${esc(w.titel)}</b></summary>
+      ${w.momenten.length ? `<div class="chips" style="margin-bottom:14px">${w.momenten.map(m => `<span class="chip">${esc(m)}</span>`).join('')}</div>` : ''}
+      ${weekPlanRaster(w)}
+    </details>`;
+  }).join('');
+  const minimum = Object.entries(ZAKEN).map(([zaak, z]) => `<div class="ritme-rij"><b>${esc(z.label)}</b><span>${MINIMUM.filter(m => m.zaak === zaak)
+    .map(m => `${m.aantal} ${esc(m.label)}${m.weken ? ` (in de openingsweek ${Object.values(m.weken)[0]})` : ''}`).join(', ')}. Op maandag de carrousel "Last week:".</span></div>`).join('');
   return `
-    <header class="paginakop"><a class="rond-knop" href="#meer" aria-label="Terug">${PIJL_LINKS}</a><div class="midden"><h1 class="titel">Het plan</h1><p class="sub">Oktober 2026 tot en met maart 2027</p></div></header>
+    <header class="paginakop"><a class="rond-knop" href="#meer" aria-label="Terug">${PIJL_LINKS}</a><div class="midden"><h1 class="titel">Het plan</h1><p class="sub">Pellens en Bar Brioche · tot 3 januari week voor week, daarna per maand</p></div></header>
+    <h2 class="groep-kop">Week voor week</h2>
+    <div class="weken">${wekenHtml}</div>
+    <h2 class="groep-kop">Per maand</h2>
     <div class="maanden" id="maanden">
       ${MAANDEN.map(m => `<article class="kaart maand${m.maand === huidige ? ' nu' : ''}" ${m.maand === huidige ? 'id="maand-nu"' : ''}>
         <p class="mini">${m.maand.slice(0, 4)}</p><h2>${esc(m.naam)}</h2><p class="sub">${esc(m.thema)}</p>
@@ -904,6 +1048,9 @@ function viewPlan() {
     <div class="plan-onder">
       <section class="kaart"><h2 style="margin-bottom:12px">Spelregels</h2><ol class="regels">${SPELREGELS.map(r => `<li>${esc(r)}</li>`).join('')}</ol></section>
       <section class="kaart"><h2 style="margin-bottom:8px">Het ritme</h2>${RITME.map(r => `<div class="ritme-rij"><b>${esc(r.wanneer)}</b><span>${esc(r.wat)} <span class="vaag">· ${esc(r.wie)}</span></span></div>`).join('')}</section>
+      <section class="kaart"><h2 style="margin-bottom:8px">Elke week minimaal</h2>${minimum}
+        <div class="ritme-rij"><b>Samen</b><span>Elke week één samenwerkingspost die op beide profielen verschijnt.</span></div></section>
+      <section class="kaart"><h2 style="margin-bottom:8px">Waar de posts over gaan</h2>${Object.entries(ZAKEN).map(([zaak, z]) => `<div class="ritme-rij"><b>${esc(z.label)}</b><span>${POST_ONDERWERPEN[zaak].map(esc).join(', ')}</span></div>`).join('')}</section>
       <section class="kaart"><h2 style="margin-bottom:8px">Vijf thema's</h2>${Object.values(THEMAS).map(t => `<div class="ritme-rij"><b>${esc(t.label)}</b><span>${esc(t.uitleg)}</span></div>`).join('')}</section>
     </div>
     ${config.planUrl ? `<a class="knop stil" href="${esc(config.planUrl)}" target="_blank" rel="noopener">Volledig plan openen</a>` : ''}`;
@@ -912,7 +1059,7 @@ function viewPlan() {
 // ---------------------------------------------------------------------------
 // Overzicht: alles op één scherm, voor de laptop en het grote scherm.
 
-const MERK_KLEUR = { pellens: 'g1', brouwerij: 'g2' };
+const MERK_KLEUR = { pellens: 'g1', barbrioche: 'g2', brouwerij: 'g2' };
 const STATUS_ICOON = { idee: 'kiem', tekst_nodig: 'mic', tekst_klaar: 'check', ingepland: 'kalender', geplaatst: 'check' };
 const weekLabel = maandag => `wk ${weekNummer(maandag)}`;
 
@@ -923,20 +1070,33 @@ function swatch(merk) {
 function aandachtPunten() {
   const d = nu();
   const punten = [];
-  const tekst = postsTekstNodig(S.posts.filter(p => p.datum >= plusDagen(d, -7)));
-  if (tekst.length) {
-    const snel = tekst.filter(p => p.datum <= plusDagen(d, 3)).length;
+  const recent = S.posts.filter(p => p.datum >= plusDagen(d, -7));
+  const goedkeuren = postsWachtOpGoedkeuring(recent);
+  if (goedkeuren.length) {
+    const snel = goedkeuren.filter(p => p.datum <= plusDagen(d, 3)).length;
+    punten.push({
+      niveau: snel ? 'actie' : 'let', icoon: 'check', href: '#posts/goedkeuren',
+      tekst: `${goedkeuren.length} ${goedkeuren.length === 1 ? 'tekst wacht' : 'teksten wachten'} op goedkeuring van Daan${snel ? `, waarvan ${snel} binnen drie dagen` : ''}`,
+    });
+  }
+  const zonder = postsZonderTekst(recent);
+  if (zonder.length) {
+    const snel = zonder.filter(p => p.datum <= plusDagen(d, 3)).length;
     punten.push({
       niveau: snel ? 'actie' : 'let', icoon: 'mic', href: '#posts/tekst',
-      tekst: `${tekst.length} ${tekst.length === 1 ? 'post wacht' : 'posts wachten'} op tekst van Daan${snel ? `, waarvan ${snel} binnen drie dagen` : ''}`,
+      tekst: `${zonder.length} ${zonder.length === 1 ? 'post heeft' : 'posts hebben'} nog geen tekst${snel ? `, waarvan ${snel} binnen drie dagen` : ''}`,
     });
+  }
+  const tekort = weekMinimum(S.posts, dezeMaandag()).filter(m => m.gepland < m.aantal);
+  if (tekort.length) {
+    punten.push({ niveau: 'let', icoon: 'kalender', href: '#posts', tekst: `Minimaal deze week, nog niet gepland: ${tekort.map(m => `${ZAKEN[m.zaak].label} ${m.gepland} van ${m.aantal} ${m.label}`).join(', ')}` });
   }
   const nietIngepland = S.posts.filter(p => p.status === 'tekst_klaar' && p.datum >= d && p.datum <= plusDagen(d, 2));
   if (nietIngepland.length) {
     punten.push({ niveau: 'let', icoon: 'kalender', href: '#posts', tekst: `${nietIngepland.length} ${nietIngepland.length === 1 ? 'post heeft' : 'posts hebben'} een tekst maar ${nietIngepland.length === 1 ? 'staat' : 'staan'} nog niet ingepland` });
   }
   const vorigeMa = plusDagen(dezeMaandag(), -7);
-  const weekCijfers = METRICS.filter(m => m.periode === 'week');
+  const weekCijfers = METRICS.filter(m => m.periode === 'week' && metricActief(m, vorigeMa));
   const ingevuld = weekCijfers.filter(m => S.metingen.some(x => x.metric === m.key && x.periode_start === vorigeMa)).length;
   if (ingevuld < weekCijfers.length) {
     punten.push({ niveau: ingevuld ? 'let' : 'actie', icoon: 'grafiek', href: '#cijfers', tekst: `Cijfers van week ${weekNummer(vorigeMa)}: ${ingevuld} van ${weekCijfers.length} ingevuld` });
@@ -969,7 +1129,7 @@ function kpiTegels() {
       delta: v.delta,
       deltaTekst: perWeek ? 't.o.v. week ervoor' : 't.o.v. maand ervoor',
       reeks: perWeek ? waardenPer(S.metingen, key, wk) : reeks(S.metingen, key, 8).map(x => Number(x.waarde)),
-      voet: doel && doel.doel_maart != null ? `doel maart ${getal(doel.doel_maart, m.decimalen || 0)}` : v.periode ? periodeLabel(v.periode, m.periode) : 'nog niet gemeten',
+      voet: doel && einddoel(doel) != null ? `doel ${doel.doel_maart != null ? 'maart' : 'december'} ${getal(einddoel(doel), m.decimalen || 0)}` : v.periode ? periodeLabel(v.periode, m.periode) : 'nog niet gemeten',
       href: '#doelen',
     });
   };
@@ -984,15 +1144,15 @@ function kpiTegels() {
     tegel('gasten_diner', 'Gasten per diner'),
     tegel('gasten_lunch', 'Gasten per lunch'),
     tegel('ig_volgers_pellens', 'Instagram Pellens'),
-    tegel('ig_volgers_brouwerij', 'Instagram Brouwerij'),
-    tegel('google_reviews', 'Google-reviews'),
-    tegel('emailadressen', 'E-mailadressen'),
+    tegel('ig_volgers_barbrioche', 'Instagram Bar Brioche'),
+    tegel('google_reviews', 'Google-reviews Pellens'),
+    tegel('kerstpakketten', 'Kerstpakketten'),
   ].join('');
 }
 
 function kalPost(p) {
   const kanaal = KANALEN[p.kanaal] || { label: p.kanaal };
-  const status = POST_STATUS[p.status] || POST_STATUS.idee;
+  const status = statusVan(p);
   const merk = MERKEN[p.merk] || MERKEN.pellens;
   const wacht = postsTekstNodig([p]).length > 0;
   return `<button class="kal-post${wacht ? ' wacht' : ''}" data-actie="post-open" data-id="${esc(p.id)}"
@@ -1054,23 +1214,29 @@ function teamVandaag() {
   }).join('');
 }
 
-function doelRij(doel) {
-  const m = metric(doel.metric) || { decimalen: 0 };
+function doelRij(ruw) {
+  const m = metric(ruw.metric) || { decimalen: 0 };
+  const doel = metStart(ruw, S.metingen);
   const laatst = laatsteMeting(S.metingen, doel.metric);
   const huidig = laatst ? Number(laatst.waarde) : null;
   const v = voortgang(doel, huidig);
-  const schema = opSchema(doel, huidig, nu());
+  const schema = opSchema(doel, huidig, nu(), m);
   const dec = m.decimalen || 0;
+  const voet = [
+    `start ${getal(doel.start_waarde, dec)}`,
+    doel.doel_december != null ? `dec ${getal(doel.doel_december, dec)}` : '',
+    doel.doel_maart != null ? `mrt ${getal(doel.doel_maart, dec)}` : '',
+  ].filter(Boolean).join(' · ');
   return `<div class="doelrij">
     <div class="doelrij-kop"><b>${esc(doel.label)}</b><span class="doelrij-waarde">${esc(getal(huidig ?? doel.start_waarde, dec))}</span></div>
     ${v ? `
-      <div class="balk-groot" role="img" aria-label="${Math.round(v.procent * 100)} procent van het doel van maart">
+      <div class="balk-groot" role="img" aria-label="${Math.round(v.procent * 100)} procent van het doel">
         <i style="width:${Math.max(2, v.procent * 100)}%"></i>
         ${v.tussenstap != null ? `<span class="merkpunt" style="left:${v.tussenstap * 100}%"></span>` : ''}
         ${schema ? `<span class="verwacht-punt" style="left:${Math.max(0, Math.min(1, schema.verwachtDeel)) * 100}%"></span>` : ''}
       </div>
-      <div class="doelrij-voet"><span>start ${esc(getal(doel.start_waarde, dec))} · dec ${esc(getal(doel.doel_december, dec))} · mrt ${esc(getal(doel.doel_maart, dec))}</span>${v.gehaald ? '<span class="schema s-voor">doel gehaald</span>' : schemaLabel(schema)}</div>`
-    : `<p class="mini">${doel.doel_maart == null ? 'Doel volgt na de nulmeting.' : 'Nog geen meting ingevuld.'}</p>`}
+      <div class="doelrij-voet"><span>${esc(voet)}</span>${v.gehaald ? '<span class="schema s-voor">doel gehaald</span>' : schemaLabel(schema)}</div>`
+    : `<p class="mini">${einddoel(doel) == null ? 'Nog geen doel ingesteld.' : 'Nog geen meting ingevuld.'}</p>`}
   </div>`;
 }
 
@@ -1110,7 +1276,11 @@ function viewOverzicht() {
   const start = plusDagen(dezeMaandag(), 7 * S.kalenderVerschuiving);
   const inVenster = S.posts.filter(p => p.datum >= start && p.datum <= plusDagen(start, 13));
   const perStatus = telPer(inVenster, 'status');
-  const wachten = postsTekstNodig(S.posts.filter(p => p.datum >= plusDagen(d, -7)));
+  const recentePosts = S.posts.filter(p => p.datum >= plusDagen(d, -7));
+  const wachten = postsWachtOpGoedkeuring(recentePosts);
+  const zonderTekst = postsZonderTekst(recentePosts).length;
+  const week = weekVanPlan(d);
+  const igPellens = S.doelen.find(x => x.metric === 'ig_volgers_pellens');
   const taken = takenVoorWeek(S.taken, dezeMaandag());
   const plekken = vrijePlekken(S.taken, dezeMaandag());
   const punten = aandachtPunten();
@@ -1120,6 +1290,7 @@ function viewOverzicht() {
   const perKanaal = telPer(themaVenster, 'kanaal');
   const perMerk = telPer(themaVenster, 'merk');
   const boeken = perThema.boeken || 0;
+  const barBriocheVolgers = waardenPer(S.metingen, 'ig_volgers_barbrioche', wk);
   const brouwerijVolgers = waardenPer(S.metingen, 'ig_volgers_brouwerij', wk);
   const recent = S.uploads.slice(0, 5);
   const dezeWeekGeupload = S.uploads.filter(u => u.created_at >= plusDagen(d, -7)).length;
@@ -1147,11 +1318,17 @@ function viewOverzicht() {
     <section class="kpis" aria-label="Cijfers">${kpiTegels()}</section>
 
     <div class="dash-raster">
+      ${week ? `<section class="kaart blok b-12">
+        <div class="blok-kop"><div><p class="label">Week ${weekNummer(week.maandag)} in het plan</p><h2>${esc(week.titel)}</h2></div><a class="link-knop" href="#plan">Plan</a></div>
+        ${week.momenten.length ? `<div class="chips" style="margin-bottom:14px">${week.momenten.map(m => `<span class="chip">${esc(m)}</span>`).join('')}</div>` : ''}
+        ${weekPlanRaster(week)}
+      </section>` : ''}
+
       <section class="kaart blok b-12">
         <div class="blok-kop">
           <div><h2>Contentkalender</h2><p class="sub">${weekLabel(start)} en ${weekLabel(plusDagen(start, 7))} · ${korteDatum(start).split(' ').slice(1).join(' ')} tot ${korteDatum(plusDagen(start, 13)).split(' ').slice(1).join(' ')}</p></div>
           <div class="blok-acties">
-            <span class="legenda"><span>${swatch('pellens')}Pellens</span><span>${swatch('brouwerij')}Brouwerij</span></span>
+            <span class="legenda"><span>${swatch('pellens')}Pellens</span><span>${swatch('barbrioche')}Bar Brioche en Brouwerij</span></span>
             <button class="rond-knop klein" data-actie="kal-terug" aria-label="Eerdere weken">${PIJL_LINKS}</button>
             ${S.kalenderVerschuiving ? '<button class="link-knop" data-actie="kal-nu">Nu</button>' : ''}
             <button class="rond-knop klein" data-actie="kal-verder" aria-label="Latere weken">${PIJL_RECHTS}</button>
@@ -1163,12 +1340,10 @@ function viewOverzicht() {
       <section class="kaart blok b-4">
         <div class="blok-kop"><div><h2>Pijplijn</h2><p class="sub">Posts in deze twee weken, per stap</p></div></div>
         ${staafLijst({ rijen: Object.entries(POST_STATUS).map(([k, s]) => ({ label: s.label, waarde: perStatus[k] || 0 })), naam: 'posts' })}
-        <h3 class="blok-sub">Wacht op tekst van Daan</h3>
-        ${wachten.length ? `<div class="lijstje">${wachten.slice(0, 6).map(p => `<button class="lijst-rij" data-actie="post-open" data-id="${esc(p.id)}">
-            ${swatch(p.merk)}<span class="lijst-tekst"><b>${esc(korteDatum(p.datum))} · ${esc((KANALEN[p.kanaal] || { label: p.kanaal }).label)}</b><span>${esc(p.idee)}</span></span>
-            ${isEigenaar() ? `<span class="cta">${icoon('mic', 13)} Inspreken</span>` : ''}
-          </button>`).join('')}</div>${wachten.length > 6 ? `<a class="link-knop" href="#posts/tekst">Alle ${wachten.length} bekijken</a>` : ''}`
-          : '<p class="leeg">Alle teksten zijn binnen.</p>'}
+        <h3 class="blok-sub">Wacht op goedkeuring van Daan</h3>
+        ${wachten.length ? `<div class="lijstje">${wachten.slice(0, 6).map(p => postRij(p, isEigenaar() ? `<span class="cta">${icoon('check', 13)} Goedkeuren</span>` : '')).join('')}</div>${wachten.length > 6 ? `<a class="link-knop" href="#posts/goedkeuren">Alle ${wachten.length} bekijken</a>` : ''}`
+          : '<p class="leeg">Niets dat op goedkeuring wacht.</p>'}
+        ${zonderTekst ? `<p class="mini" style="margin-top:8px">${zonderTekst} ${zonderTekst === 1 ? 'post heeft' : 'posts hebben'} nog geen tekst. <a class="link-knop" href="#posts/tekst">Bekijken</a></p>` : ''}
       </section>
 
       <section class="kaart blok b-4">
@@ -1195,11 +1370,15 @@ function viewOverzicht() {
       </section>
 
       <section class="kaart blok b-6">
-        <div class="blok-kop"><div><h2>Instagram-volgers</h2><p class="sub">Pellens per week · doel december 4.800, maart 6.000</p></div></div>
+        <div class="blok-kop"><div><h2>Instagram-volgers</h2><p class="sub">Pellens per week${igPellens && igPellens.doel_december != null ? ` · doel december ${esc(getal(igPellens.doel_december))}` : ''}${igPellens && igPellens.doel_maart != null ? `, maart ${esc(getal(igPellens.doel_maart))}` : ''}</p></div></div>
         ${lijnGrafiek({
           titel: 'Instagram-volgers Pellens per week', labels: wk.map(weekLabel), tabelKop: 'Week', hoogte: 170,
           reeksen: [{ naam: 'Pellens', kleur: 'g1', waarden: waardenPer(S.metingen, 'ig_volgers_pellens', wk) }],
         })}
+        ${barBriocheVolgers.filter(v => v != null).length >= 2 ? `<h3 class="blok-sub">Bar Brioche</h3>${lijnGrafiek({
+          titel: 'Instagram-volgers Bar Brioche per week', labels: wk.map(weekLabel), tabelKop: 'Week', hoogte: 120,
+          reeksen: [{ naam: 'Bar Brioche', kleur: 'g2', waarden: barBriocheVolgers }],
+        })}` : ''}
         ${brouwerijVolgers.filter(v => v != null).length >= 2 ? `<h3 class="blok-sub">Brouwerij de Brouwer</h3>${lijnGrafiek({
           titel: 'Instagram-volgers Brouwerij per week', labels: wk.map(weekLabel), tabelKop: 'Week', hoogte: 120,
           reeksen: [{ naam: 'Brouwerij', kleur: 'g2', waarden: brouwerijVolgers }],
@@ -1207,7 +1386,7 @@ function viewOverzicht() {
       </section>
 
       <section class="kaart blok b-7">
-        <div class="blok-kop"><div><h2>Doelen tot eind maart</h2><p class="sub">Streep = doel december · driehoekje = waar je nu volgens plan zou staan</p></div><a class="link-knop" href="#doelen">Doelen</a></div>
+        <div class="blok-kop"><div><h2>Doelen</h2><p class="sub">Streep = doel december · driehoekje = waar je nu volgens plan zou staan</p></div><a class="link-knop" href="#doelen">Doelen</a></div>
         <div class="doelrijen">${S.doelen.map(doelRij).join('') || '<p class="leeg">Nog geen doelen ingesteld.</p>'}</div>
       </section>
 
@@ -1264,14 +1443,15 @@ const MENU = [
 ];
 
 function zijbalkHtml(pagina) {
-  const wachten = postsTekstNodig(S.posts.filter(p => p.datum >= plusDagen(nu(), -7))).length;
+  const recent = S.posts.filter(p => p.datum >= plusDagen(nu(), -7));
+  const wachten = (isEigenaar() ? postsWachtOpGoedkeuring(recent) : postsZonderTekst(recent)).length;
   const rol = ROLLEN[S.lid.rol] || { label: S.lid.rol };
   return `
     <a class="woordmerk" href="#overzicht" aria-label="Pellens marketing, naar het overzicht">${monogram(34)}<span><span class="naam">Pellens</span><span class="onder">marketing</span></span></a>
     ${opslag.demo ? '<span class="demo-label">demo</span>' : ''}
     <nav class="menu" aria-label="Hoofdmenu">
       ${MENU.map(([k, label, i]) => `<a href="#${k}" class="${k === pagina ? 'aan' : ''}" ${k === pagina ? 'aria-current="page"' : ''}>
-        ${icoon(i, 18)}<span>${label}</span>${k === 'posts' && wachten ? `<span class="teller-bol" title="Wachten op tekst">${wachten}</span>` : ''}</a>`).join('')}
+        ${icoon(i, 18)}<span>${label}</span>${k === 'posts' && wachten ? `<span class="teller-bol" title="${isEigenaar() ? 'Wacht op goedkeuring' : 'Nog zonder tekst'}">${wachten}</span>` : ''}</a>`).join('')}
     </nav>
     <div class="zij-onder">
       <div class="zij-wie">${avatar(S.lid)}<div><b>${esc(S.lid.naam)}</b><span class="mini">${esc(rol.label)}</span></div></div>
@@ -1361,8 +1541,9 @@ function naRender(pagina) {
     S.klok = setInterval(tik, 1000);
   }
   if (pagina === 'plan') {
+    const strook = document.getElementById('maanden');
     const nuMaand = document.getElementById('maand-nu');
-    if (nuMaand) nuMaand.scrollIntoView({ inline: 'center', block: 'nearest' });
+    if (strook && nuMaand) strook.scrollLeft = nuMaand.offsetLeft - strook.offsetLeft - (strook.clientWidth - nuMaand.clientWidth) / 2;
   }
 }
 
@@ -1946,10 +2127,13 @@ document.addEventListener('drop', e => {
   if (e.dataTransfer && e.dataTransfer.files.length && !S.upload.bezig) voegBestandenToe(e.dataTransfer.files);
 });
 
+// #posts/tekst en #posts/goedkeuren openen Posts met het filter al aan.
+const POST_ROUTES = { tekst: 'tekst_nodig', goedkeuren: 'goedkeuren' };
+
 window.addEventListener('hashchange', () => {
   sluitPaneel(true);
   const { pagina, arg } = route();
-  if (pagina === 'posts' && arg === 'tekst') { S.postFilter = { status: 'tekst_nodig', merk: 'alles' }; S.postsVerschuiving = 0; }
+  if (pagina === 'posts' && POST_ROUTES[arg]) { S.postFilter = { status: POST_ROUTES[arg], merk: 'alles' }; S.postsVerschuiving = 0; }
   render({ animeer: true });
   window.scrollTo({ top: 0 });
 });
@@ -1972,7 +2156,7 @@ async function start() {
   await laadAlles();
   if (!location.hash) history.replaceState(null, '', `#${startPagina()}`);
   const { pagina, arg } = route();
-  if (pagina === 'posts' && arg === 'tekst') S.postFilter = { status: 'tekst_nodig', merk: 'alles' };
+  if (pagina === 'posts' && POST_ROUTES[arg]) S.postFilter = { status: POST_ROUTES[arg], merk: 'alles' };
   render({ animeer: true });
 }
 
